@@ -98,7 +98,7 @@ The `.env` file holds your settings. Open it in any text editor (in Terminal: `o
 | Setting | What it does |
 | --- | --- |
 | `AI_PROVIDER=ollama` | Use a local model through Ollama (default). |
-| `AI_PROVIDER=claude` | Use Claude through the Anthropic API instead. Needs `ANTHROPIC_API_KEY`. |
+| `AI_PROVIDER=claude` | Use Claude through the Anthropic API instead. Needs `ANTHROPIC_API_KEY`, Python 3.10 or newer, and one extra install: `pip install -r requirements-claude.txt`. |
 | `OLLAMA_MODEL` | Which Ollama model to use. It must support images. Default `qwen2.5vl:7b`. Others to try: `qwen2.5vl:3b` (smaller, faster), `gemma3:12b`, `llama3.2-vision`. Download a model first with `ollama pull <name>`. |
 | `ANTHROPIC_API_KEY` | Your Claude API key, from <https://console.anthropic.com/settings/keys>. Paste it after the `=` with no quotes. Only needed for `AI_PROVIDER=claude`. |
 | `CLAUDE_MODEL` | Default `claude-opus-5-5`. |
@@ -130,6 +130,7 @@ A good hackathon plan: build and demo with Ollama, and keep Claude as a backup f
 | *Address already in use* | Something else is using port 5050. Put `PORT=5051` in `.env` and open <http://localhost:5051>. |
 | Reading a photo is very slow | The first request loads the model into memory and is slowest. Try `qwen2.5vl:3b`, or a smaller or cropped photo. |
 | *No Anthropic API key found* | You set `AI_PROVIDER=claude`. Add your key to `.env`, or switch back to `ollama`. |
+| `No matching distribution found for anthropic` | You're on an older version of the code. Download it again. The local (Ollama) setup works with the Python that comes with your Mac. |
 | `python3: command not found` | Install Python from <https://www.python.org/downloads/>. |
 
 ---
@@ -149,6 +150,7 @@ A good hackathon plan: build and demo with Ollama, and keep Claude as a backup f
 app.py                         the server and the AI calls
 templates/index.html           the web page
 requirements.txt               Python packages to install
+requirements-claude.txt        extra package, only for AI_PROVIDER=claude
 .env.example                   settings template (copy to .env)
 examples/                      a sample handwritten note to try
 docs/screenshots/              screenshots used in this README

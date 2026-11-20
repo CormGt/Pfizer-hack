@@ -1,0 +1,2 @@
+# Extra package needed only when AI_PROVIDER=claude (requires Python 3.10+).
+anthropic>=2.11,<3

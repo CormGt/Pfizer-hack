@@ -38,8 +38,6 @@ try:
 except ImportError:
     pass
 
-import anthropic
-
 BASE_DIR = Path(__file__).parent
 DATA_FILE = BASE_DIR / "notes.json"
 
@@ -154,6 +152,10 @@ _client = None
 
 def _ask_claude(prompt, schema, image):
     global _client
+    try:
+        import anthropic  # only needed when AI_PROVIDER=claude
+    except ImportError as exc:
+        raise AIError("To use Claude, install its package first: pip install -r requirements-claude.txt (needs Python 3.10 or newer).") from exc
     if _client is None:
         _client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
     content = []
