@@ -1,6 +1,6 @@
 # 🗂️ Notes Manager
 
-An AI assistant that pieces together scattered notes. Type a quick note, or snap a photo of your handwritten notes. The AI reads the handwriting, then groups related notes into topics, summarises each one, pulls out action items and links topics that connect.
+An AI assistant that pieces together scattered notes. Type a quick note, or snap a photo of your handwritten notes. The AI reads the handwriting, then groups related notes into topics, summarises each one, pulls out action items and links topics that connect. You can also **chat with your notes**: ask about a subject and it pulls up every note about it, in date order. If your notes don't cover something, it says so instead of making something up.
 
 **It runs entirely on your own computer.** By default it uses a free local AI model through [Ollama](https://ollama.com), so your notes never leave your machine and you don't need an API key. You can switch to Claude (Anthropic's API) with one setting if you want stronger results.
 
@@ -87,6 +87,12 @@ A sample handwritten page is included at [`examples/sample-handwritten-note.jpg`
 
 ![Organised board](docs/screenshots/4-organised.png)
 
+**4. Ask your notes.** Open the **💬 Ask your notes** tab and ask about any subject, for example *"What notes do I have about the Leeds trial?"*. The AI answers using only your notes and shows every note on that subject as a timeline, oldest first, with dates. If nothing in your notes covers the question, it says so. It never makes up an answer: if the AI's reply isn't backed by at least one of your notes, the app replaces it with *"I couldn't find any notes about that."*
+
+![Chat with your notes](docs/screenshots/6-chat.png)
+
+**Dates.** Every note has a date. Typed notes use the date picker next to **Add note** (today by default). For photos, the AI uses any date written on the page, otherwise today. Click the date on any note in **All notes** to change it.
+
 Add more notes at any time. The app tells you how many notes are new since you last organised, and you press **Organise my notes** again to update the board. Everything is saved in `notes.json`, so it's still there when you restart.
 
 ---
@@ -140,6 +146,7 @@ A good hackathon plan: build and demo with Ollama, and keep Claude as a backup f
 - `app.py` is a small [Flask](https://flask.palletsprojects.com) web server.
   - `POST /api/photo` sends the photo to the AI with instructions to transcribe the handwriting and split it into separate notes.
   - `POST /api/organise` sends all notes to the AI and asks it to group them into topics, with summaries, action items, links and open questions.
+  - `POST /api/chat` sends your question and your notes (with dates) to the AI. It must answer only from the notes and list the id of every note it used. Answers that cite no real note are replaced with "no notes found".
   - Both ask for a fixed JSON shape (a "schema"), so the answers always fit the page.
 - `templates/index.html` is the whole web page (HTML, CSS and JavaScript in one file).
 - Notes are saved in `notes.json`.
