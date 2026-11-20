@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes Manager</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --ink: #1d2433; --muted: #667085;
+    --line: #e4e7ec; --accent: #0000c9; --accent-soft: #e8e8ff;
+    --warn: #b54708; --warn-soft: #fef0c7; --ok: #067647; --ok-soft: #dcfae6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.45; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px;
+           display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .demo-badge { background: var(--warn-soft); color: var(--warn); font-size: 12px; font-weight: 600;
+                padding: 3px 8px; border-radius: 999px; }
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 15px; margin: 0 0 10px; }
+  textarea { width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+             font: inherit; resize: vertical; }
+  button, .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 9px 14px;
+                 font: inherit; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  button.secondary { background: var(--accent-soft); color: var(--accent); }
+  button.link { background: none; color: var(--muted); padding: 2px 6px; font-weight: 400; font-size: 13px; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .drop { display: block; border: 2px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted);
+          cursor: pointer; transition: .15s; }
+  .drop.over, .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .drop input { display: none; }
+  .preview { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 10px; display: none; }
+  .status { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .status.err { color: #b42318; } .status.ok { color: var(--ok); }
+  .note { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
+  .note.flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { from { background: var(--ok-soft); } to { background: #fff; } }
+  .note-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+  .note-title { font-weight: 600; }
+  .note-text { white-space: pre-wrap; color: #344054; font-size: 14px; margin-top: 4px; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.photo { background: var(--ok-soft); color: var(--ok); }
+  .board-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .board-head h2 { margin: 0; font-size: 18px; }
+  .overview { background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .topics { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .topic { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; scroll-margin-top: 16px; }
+  .topic.hl { outline: 3px solid var(--accent); }
+  .topic h3 { margin: 0 0 6px; font-size: 16px; }
+  .topic .summary { color: #344054; margin: 0 0 10px; }
+  .topic h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 6px; }
+  .actions { margin: 0; padding-left: 0; list-style: none; }
+  .actions li { display: flex; gap: 8px; align-items: start; margin-bottom: 4px; }
+  .actions input { margin-top: 4px; }
+  .actions li.done span { text-decoration: line-through; color: var(--muted); }
+  details.src summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .chip { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft);
+          color: var(--accent); margin: 0 4px 4px 0; cursor: pointer; border: 0; font-weight: 500; }
+  .questions { background: var(--warn-soft); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
+  .questions ul { margin: 6px 0 0; padding-left: 18px; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 16px; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.5); border-top-color: #fff; border-radius: 50%;
+             animation: spin .8s linear infinite; display: none; }
+  button.busy .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stale { font-size: 12px; color: var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗂️ Notes Manager</h1>
+  <span class="sub">Scattered notes in, organised plan out. AI: {{ "Local (Ollama)" if provider == "ollama" else "Claude" }} · {{ model }}</span>
+  {% if demo_mode %}<span class="demo-badge">DEMO MODE: example results, no AI is called</span>{% endif %}
+</header>
+
+<main>
+  <section>
+    <div class="panel">
+      <h2>📷 Add a photo of handwritten notes</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="photo" accept="image/*" capture="environment">
+        <div><strong>Tap to take or choose a photo</strong><br><span style="font-size:13px">or drag an image here</span></div>
+      </label>
+      <img id="preview" class="preview" alt="">
+      <div class="row">
+        <button id="readPhoto" disabled><span class="spinner"></span>Read handwriting</button>
+      </div>
+      <div class="status" id="photoStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>✏️ Type a quick note</h2>
+      <textarea id="noteText" placeholder="e.g. Call supplier about the delayed batch before Thursday"></textarea>
+      <div class="row">
+        <button id="addNote" class="secondary">Add note</button>
+      </div>
+      <div class="status" id="noteStatus"></div>
+    </div>
+
+    <div class="panel">
+      <div class="board-head" style="margin-bottom:8px">
+        <h2 style="margin:0">📥 All notes (<span id="count">0</span>)</h2>
+        <button class="link" id="reset">Clear all</button>
+      </div>
+      <div id="notes"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="board-head">
+      <h2>🧩 Your organised notes</h2>
+      <div class="row" style="margin:0">
+        <span class="stale" id="stale"></span>
+        <button id="organise"><span class="spinner"></span>Organise my notes</button>
+      </div>
+    </div>
+    <div class="status" id="orgStatus"></div>
+    <div id="board"><div class="empty panel">Add some notes on the left, then press <strong>Organise my notes</strong>.<br>The AI will group related notes, summarise each topic and pull out action items.</div></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let state = { notes: [], organised: null };
+let selectedFile = null;
+const doneKey = "notes-manager-done";
+let done = {};
+try { done = JSON.parse(localStorage.getItem(doneKey) || "{}"); } catch (e) {}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function setStatus(el, msg, kind) { el.textContent = msg || ""; el.className = "status " + (kind || ""); }
+function busy(btn, on) { btn.disabled = on; btn.classList.toggle("busy", on); }
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Something went wrong (" + res.status + ")");
+  return data;
+}
+
+function renderNotes(flashIds = []) {
+  $("count").textContent = state.notes.length;
+  if (!state.notes.length) { $("notes").innerHTML = '<div class="empty" style="padding:16px">No notes yet.</div>'; return; }
+  $("notes").innerHTML = state.notes.slice().reverse().map(n => `
+    <div class="note ${flashIds.includes(n.id) ? "flash" : ""}">
+      <div class="note-head">
+        <div class="note-title">${esc(n.title)}</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <span class="tag ${n.source}">${n.source === "photo" ? "📷 from photo" : "typed"}</span>
+          <button class="link" title="Delete" onclick="delNote('${n.id}')">✕</button>
+        </div>
+      </div>
+      <div class="note-text">${esc(n.text)}</div>
+    </div>`).join("");
+}
+
+function renderBoard() {
+  const o = state.organised;
+  const byId = Object.fromEntries(state.notes.map(n => [n.id, n]));
+  if (!o) { return; }
+  const known = new Set(o.topics.flatMap(t => t.note_ids));
+  const newCount = state.notes.filter(n => !known.has(n.id)).length;
+  $("stale").textContent = newCount ? `${newCount} new note${newCount > 1 ? "s" : ""} since last organise` : "";
+  const topicNames = new Set(o.topics.map(t => t.name));
+  $("board").innerHTML = `
+    <div class="overview"><strong>Big picture:</strong> ${esc(o.overview)}</div>
+    <div class="topics">
+      ${o.topics.map((t, ti) => {
+        const notes = t.note_ids.map(id => byId[id]).filter(Boolean);
+        return `
+        <div class="topic" id="topic-${ti}" data-name="${esc(t.name)}">
+          <h3>${esc(t.name)}</h3>
+          <p class="summary">${esc(t.summary)}</p>
+          ${t.action_items.length ? `<h4>Action items</h4><ul class="actions">${t.action_items.map((a, ai) => {
+            const k = t.name + "::" + a; const d = done[k];
+            return `<li class="${d ? "done" : ""}"><input type="checkbox" ${d ? "checked" : ""} data-k="${esc(k)}" onchange="toggleDone(this)"><span>${esc(a)}</span></li>`;
+          }).join("")}</ul>` : ""}
+          ${t.related_topics.filter(r => topicNames.has(r)).length ? `<h4>Linked to</h4>${t.related_topics.filter(r => topicNames.has(r)).map(r => `<button class="chip" onclick="jump('${esc(r).replace(/'/g, "\\'")}')">🔗 ${esc(r)}</button>`).join("")}` : ""}
+          <h4>Source notes (${notes.length})</h4>
+          <details class="src"><summary>Show the original notes</summary>
+            ${notes.map(n => `<div class="note" style="margin-top:8px"><div class="note-head"><div class="note-title">${esc(n.title)}</div><span class="tag ${n.source}">${n.source === "photo" ? "📷" : "typed"}</span></div><div class="note-text">${esc(n.text)}</div></div>`).join("")}
+          </details>
+        </div>`;
+      }).join("")}
+    </div>
+    ${o.open_questions.length ? `<div class="questions"><strong>❓ Open questions</strong><ul>${o.open_questions.map(q => `<li>${esc(q)}</li>`).join("")}</ul></div>` : ""}`;
+}
+
+function jump(name) {
+  const el = [...document.querySelectorAll(".topic")].find(e => e.dataset.name === name);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1500);
+}
+function toggleDone(cb) {
+  done[cb.dataset.k] = cb.checked;
+  try { localStorage.setItem(doneKey, JSON.stringify(done)); } catch (e) {}
+  cb.parentElement.classList.toggle("done", cb.checked);
+}
+
+async function refresh(flashIds) {
+  state = await api("/api/state");
+  renderNotes(flashIds); renderBoard();
+}
+
+async function delNote(id) {
+  await api("/api/notes/" + id, { method: "DELETE" });
+  refresh();
+}
+
+function pickFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  const p = $("preview"); p.src = URL.createObjectURL(file); p.style.display = "block";
+  $("readPhoto").disabled = false;
+  setStatus($("photoStatus"), file.name);
+}
+$("photo").addEventListener("change", e => pickFile(e.target.files[0]));
+const drop = $("drop");
+["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => pickFile(e.dataTransfer.files[0]));
+
+$("readPhoto").addEventListener("click", async () => {
+  if (!selectedFile) return;
+  const btn = $("readPhoto"); busy(btn, true);
+  setStatus($("photoStatus"), "The AI is reading the handwriting… (on a local model this can take a minute)");
+  try {
+    const fd = new FormData(); fd.append("photo", selectedFile);
+    const r = await api("/api/photo", { method: "POST", body: fd });
+    let msg = `✓ Added ${r.notes.length} note${r.notes.length > 1 ? "s" : ""} from the photo.`;
+    if (r.unclear_words.length) msg += ` Hard to read: ${r.unclear_words.join(", ")} (marked [?]).`;
+    setStatus($("photoStatus"), msg, "ok");
+    selectedFile = null; $("photo").value = ""; $("preview").style.display = "none";
+    await refresh(r.notes.map(n => n.id));
+  } catch (e) { setStatus($("photoStatus"), e.message, "err"); btn.disabled = false; }
+  btn.classList.remove("busy");
+  if (!selectedFile) btn.disabled = true;
+});
+
+$("addNote").addEventListener("click", async () => {
+  const text = $("noteText").value.trim();
+  if (!text) return setStatus($("noteStatus"), "Write something first.", "err");
+  try {
+    const r = await api("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    $("noteText").value = ""; setStatus($("noteStatus"), "✓ Note added.", "ok");
+    await refresh([r.note.id]);
+  } catch (e) { setStatus($("noteStatus"), e.message, "err"); }
+});
+
+$("organise").addEventListener("click", async () => {
+  const btn = $("organise"); busy(btn, true);
+  setStatus($("orgStatus"), "The AI is piecing your notes together…");
+  try {
+    await api("/api/organise", { method: "POST" });
+    setStatus($("orgStatus"), "");
+    await refresh();
+  } catch (e) { setStatus($("orgStatus"), e.message, "err"); }
+  busy(btn, false);
+});
+
+$("reset").addEventListener("click", async () => {
+  if (!state.notes.length) return;
+  if (!window.confirm("Delete all notes?")) return;
+  await api("/api/reset", { method: "POST" });
+  $("board").innerHTML = '<div class="empty panel">Add some notes on the left, then press <strong>Organise my notes</strong>.</div>';
+  $("stale").textContent = "";
+  refresh();
+});
+
+refresh();
+</script>
+</body>
+</html>
