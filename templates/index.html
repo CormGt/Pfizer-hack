@@ -6,9 +6,11 @@
 <title>Notes Manager</title>
 <style>
   :root {
-    --bg: #f5f6f8; --card: #ffffff; --ink: #1d2433; --muted: #667085;
-    --line: #e4e7ec; --accent: #0000c9; --accent-soft: #e8e8ff;
-    --warn: #b54708; --warn-soft: #fef0c7; --ok: #067647; --ok-soft: #dcfae6;
+    color-scheme: dark;
+    --bg: #0d1117; --card: #161b22; --card-2: #1c2230; --ink: #e6edf3; --body: #c3ccd8; --muted: #8b95a5;
+    --line: #2a3140; --accent: #7c8cff; --accent-ink: #0d1117; --accent-soft: rgba(124,140,255,.14);
+    --warn: #f0b45b; --warn-soft: rgba(240,180,91,.12); --ok: #4ade80; --ok-soft: rgba(74,222,128,.14);
+    --err: #f87171;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -23,9 +25,10 @@
   @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
   .panel h2 { font-size: 15px; margin: 0 0 10px; }
-  textarea { width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+  textarea { background: var(--card-2); color: var(--ink); width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
              font: inherit; resize: vertical; }
-  button, .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 9px 14px;
+  textarea:focus { outline: none; border-color: var(--accent); }
+  button, .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 9px 14px;
                  font: inherit; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
   button.secondary { background: var(--accent-soft); color: var(--accent); }
   button.link { background: none; color: var(--muted); padding: 2px 6px; font-weight: 400; font-size: 13px; }
@@ -37,23 +40,23 @@
   .drop input { display: none; }
   .preview { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 10px; display: none; }
   .status { font-size: 13px; margin-top: 8px; min-height: 18px; }
-  .status.err { color: #b42318; } .status.ok { color: var(--ok); }
-  .note { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
+  .status.err { color: var(--err); } .status.ok { color: var(--ok); }
+  .note { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: var(--card-2); }
   .note.flash { animation: flash 1.6s ease-out; }
-  @keyframes flash { from { background: var(--ok-soft); } to { background: #fff; } }
+  @keyframes flash { from { background: var(--ok-soft); } to { background: var(--card-2); } }
   .note-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
   .note-title { font-weight: 600; }
-  .note-text { white-space: pre-wrap; color: #344054; font-size: 14px; margin-top: 4px; }
+  .note-text { white-space: pre-wrap; color: var(--body); font-size: 14px; margin-top: 4px; }
   .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; }
   .tag.photo { background: var(--ok-soft); color: var(--ok); }
   .board-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
   .board-head h2 { margin: 0; font-size: 18px; }
-  .overview { background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .overview { border: 1px solid rgba(124,140,255,.3); background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
   .topics { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
   .topic { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; scroll-margin-top: 16px; }
   .topic.hl { outline: 3px solid var(--accent); }
   .topic h3 { margin: 0 0 6px; font-size: 16px; }
-  .topic .summary { color: #344054; margin: 0 0 10px; }
+  .topic .summary { color: var(--body); margin: 0 0 10px; }
   .topic h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 6px; }
   .actions { margin: 0; padding-left: 0; list-style: none; }
   .actions li { display: flex; gap: 8px; align-items: start; margin-bottom: 4px; }
@@ -62,10 +65,10 @@
   details.src summary { cursor: pointer; color: var(--muted); font-size: 13px; }
   .chip { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft);
           color: var(--accent); margin: 0 4px 4px 0; cursor: pointer; border: 0; font-weight: 500; }
-  .questions { background: var(--warn-soft); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
+  .questions { border: 1px solid rgba(240,180,91,.3); color: var(--ink); background: var(--warn-soft); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
   .questions ul { margin: 6px 0 0; padding-left: 18px; }
   .empty { color: var(--muted); text-align: center; padding: 40px 16px; }
-  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.5); border-top-color: #fff; border-radius: 50%;
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(13,17,23,.35); border-top-color: var(--accent-ink); border-radius: 50%;
              animation: spin .8s linear infinite; display: none; }
   button.busy .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
