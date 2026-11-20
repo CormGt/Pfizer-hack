@@ -13,6 +13,7 @@
     --err: #f87171;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.45; }
   header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px;
@@ -73,6 +74,28 @@
   button.busy .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .stale { font-size: 12px; color: var(--warn); }
+  .date { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  input.date-edit { background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 6px;
+                    font: inherit; font-size: 12px; padding: 1px 4px; color-scheme: dark; cursor: pointer; }
+  input.date-edit:hover, input.date-edit:focus { border-color: var(--line); outline: none; color: var(--ink); }
+  .date-row { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  input[type=date].field { background: var(--card-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+                           padding: 7px 8px; font: inherit; color-scheme: dark; }
+  .tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+  .tabs button { background: none; color: var(--muted); padding: 7px 14px; }
+  .tabs button.on { background: var(--accent-soft); color: var(--accent); }
+  .chat { display: flex; flex-direction: column; height: calc(100vh - 170px); min-height: 480px; }
+  .chat-log { flex: 1; overflow-y: auto; padding: 4px 2px 12px; }
+  .msg { max-width: 85%; margin-bottom: 14px; }
+  .msg.user { margin-left: auto; background: var(--accent); color: var(--accent-ink); padding: 9px 13px; border-radius: 14px 14px 4px 14px; font-weight: 500; width: fit-content; }
+  .msg.ai .bubble { background: var(--card); border: 1px solid var(--line); padding: 11px 14px; border-radius: 14px 14px 14px 4px; white-space: pre-wrap; }
+  .msg.ai.none .bubble { border-color: rgba(240,180,91,.35); }
+  .msg .found { margin-top: 8px; }
+  .msg .found h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
+  .timeline .note { border-left: 3px solid var(--accent); }
+  .chat-input { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .chat-input textarea { min-height: 46px; height: 46px; resize: none; }
+  .suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center; }
 </style>
 </head>
 <body>
@@ -100,7 +123,8 @@
     <div class="panel">
       <h2>✏️ Type a quick note</h2>
       <textarea id="noteText" placeholder="e.g. Call supplier about the delayed batch before Thursday"></textarea>
-      <div class="row">
+      <div class="row" style="justify-content:space-between">
+        <label class="date-row">📅 Date <input type="date" id="noteDate" class="field"></label>
         <button id="addNote" class="secondary">Add note</button>
       </div>
       <div class="status" id="noteStatus"></div>
@@ -117,14 +141,36 @@
 
   <section>
     <div class="board-head">
-      <h2>🧩 Your organised notes</h2>
-      <div class="row" style="margin:0">
+      <div class="tabs">
+        <button id="tabChat" class="on" onclick="showTab('chat')">💬 Ask your notes</button>
+        <button id="tabBoard" onclick="showTab('board')">🧩 Organised board</button>
+      </div>
+      <div class="row" style="margin:0" id="boardTools" hidden>
         <span class="stale" id="stale"></span>
         <button id="organise"><span class="spinner"></span>Organise my notes</button>
       </div>
     </div>
-    <div class="status" id="orgStatus"></div>
-    <div id="board"><div class="empty panel">Add some notes on the left, then press <strong>Organise my notes</strong>.<br>The AI will group related notes, summarise each topic and pull out action items.</div></div>
+
+    <div id="chatView" class="panel chat">
+      <div class="chat-log" id="chatLog">
+        <div class="empty" id="chatEmpty">Ask anything about your notes, like <em>"what do I have on the Leeds trial?"</em><br>
+          The AI finds every note on that subject and shows them in date order. If there's nothing in your notes, it says so instead of making something up.
+          <div class="suggest">
+            <button class="chip" onclick="ask('What notes do I have about the trial?')">What notes do I have about the trial?</button>
+            <button class="chip" onclick="ask('What do I need to do this week?')">What do I need to do this week?</button>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input">
+        <textarea id="chatText" placeholder="Ask about a subject…"></textarea>
+        <button id="chatSend"><span class="spinner"></span>Send</button>
+      </div>
+    </div>
+
+    <div id="boardView" hidden>
+      <div class="status" id="orgStatus"></div>
+      <div id="board"><div class="empty panel">Add some notes on the left, then press <strong>Organise my notes</strong>.<br>The AI will group related notes, summarise each topic and pull out action items.</div></div>
+    </div>
   </section>
 </main>
 
@@ -149,10 +195,25 @@ async function api(path, opts = {}) {
   return data;
 }
 
+function fmtDate(d) {
+  if (!d) return "";
+  const dt = new Date(d + "T00:00:00");
+  return isNaN(dt) ? d : dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+function byDate(a, b) { return (a.date + a.created_at).localeCompare(b.date + b.created_at); }
+
+// A read-only note card (used on the board and in chat answers)
+function noteCard(n, extra = "") {
+  return `<div class="note" ${extra}><div class="note-head"><div class="note-title">${esc(n.title)}</div>
+    <span class="tag ${n.source}">${n.source === "photo" ? "📷" : "typed"}</span></div>
+    <div class="date">📅 ${esc(fmtDate(n.date))}</div>
+    <div class="note-text">${esc(n.text)}</div></div>`;
+}
+
 function renderNotes(flashIds = []) {
   $("count").textContent = state.notes.length;
   if (!state.notes.length) { $("notes").innerHTML = '<div class="empty" style="padding:16px">No notes yet.</div>'; return; }
-  $("notes").innerHTML = state.notes.slice().reverse().map(n => `
+  $("notes").innerHTML = state.notes.slice().sort(byDate).reverse().map(n => `
     <div class="note ${flashIds.includes(n.id) ? "flash" : ""}">
       <div class="note-head">
         <div class="note-title">${esc(n.title)}</div>
@@ -161,8 +222,15 @@ function renderNotes(flashIds = []) {
           <button class="link" title="Delete" onclick="delNote('${n.id}')">✕</button>
         </div>
       </div>
+      <span class="date">📅</span><input type="date" class="date-edit" value="${esc(n.date)}" title="Change the date" onchange="setDate('${n.id}', this.value)">
       <div class="note-text">${esc(n.text)}</div>
     </div>`).join("");
+}
+
+async function setDate(id, value) {
+  if (!value) return;
+  await api("/api/notes/" + id, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: value }) });
+  refresh();
 }
 
 function renderBoard() {
@@ -189,7 +257,7 @@ function renderBoard() {
           ${t.related_topics.filter(r => topicNames.has(r)).length ? `<h4>Linked to</h4>${t.related_topics.filter(r => topicNames.has(r)).map(r => `<button class="chip" onclick="jump('${esc(r).replace(/'/g, "\\'")}')">🔗 ${esc(r)}</button>`).join("")}` : ""}
           <h4>Source notes (${notes.length})</h4>
           <details class="src"><summary>Show the original notes</summary>
-            ${notes.map(n => `<div class="note" style="margin-top:8px"><div class="note-head"><div class="note-title">${esc(n.title)}</div><span class="tag ${n.source}">${n.source === "photo" ? "📷" : "typed"}</span></div><div class="note-text">${esc(n.text)}</div></div>`).join("")}
+            ${notes.sort(byDate).map(n => noteCard(n, 'style="margin-top:8px"')).join("")}
           </details>
         </div>`;
       }).join("")}
@@ -253,7 +321,7 @@ $("addNote").addEventListener("click", async () => {
   const text = $("noteText").value.trim();
   if (!text) return setStatus($("noteStatus"), "Write something first.", "err");
   try {
-    const r = await api("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const r = await api("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, date: $("noteDate").value }) });
     $("noteText").value = ""; setStatus($("noteStatus"), "✓ Note added.", "ok");
     await refresh([r.note.id]);
   } catch (e) { setStatus($("noteStatus"), e.message, "err"); }
@@ -278,6 +346,55 @@ $("reset").addEventListener("click", async () => {
   $("stale").textContent = "";
   refresh();
 });
+
+// ---- Tabs ----
+function showTab(which) {
+  const chat = which === "chat";
+  $("chatView").hidden = !chat; $("boardView").hidden = chat; $("boardTools").hidden = chat;
+  $("tabChat").classList.toggle("on", chat); $("tabBoard").classList.toggle("on", !chat);
+  try { localStorage.setItem("notes-manager-tab", which); } catch (e) {}
+}
+
+// ---- Chat ----
+const chatHistory = [];
+function addMsg(html, cls) {
+  $("chatEmpty") && $("chatEmpty").remove();
+  const div = document.createElement("div");
+  div.className = "msg " + cls; div.innerHTML = html;
+  $("chatLog").appendChild(div); $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  return div;
+}
+function ask(q) { $("chatText").value = q; sendChat(); }
+async function sendChat() {
+  const q = $("chatText").value.trim();
+  if (!q) return;
+  const btn = $("chatSend"); busy(btn, true);
+  $("chatText").value = "";
+  addMsg(esc(q), "user");
+  const pending = addMsg('<div class="bubble" style="color:var(--muted)">Searching your notes…</div>', "ai");
+  try {
+    const r = await api("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+                                       body: JSON.stringify({ message: q, history: chatHistory }) });
+    pending.classList.toggle("none", !r.notes.length);
+    pending.innerHTML = `<div class="bubble">${esc(r.answer)}</div>` + (r.notes.length ? `
+      <div class="found timeline"><h4>${r.notes.length} note${r.notes.length > 1 ? "s" : ""} about this, oldest first</h4>
+      ${r.notes.map(n => noteCard(n)).join("")}</div>` : "");
+    chatHistory.push({ role: "user", text: q }, { role: "assistant", text: r.answer });
+  } catch (e) {
+    pending.innerHTML = `<div class="bubble" style="color:var(--err)">${esc(e.message)}</div>`;
+  }
+  $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  busy(btn, false);
+}
+$("chatSend").addEventListener("click", sendChat);
+$("chatText").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+
+function localToday() {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+$("noteDate").value = localToday();
+try { if (localStorage.getItem("notes-manager-tab") === "board") showTab("board"); } catch (e) {}
 
 refresh();
 </script>

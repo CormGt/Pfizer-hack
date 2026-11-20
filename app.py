@@ -68,7 +68,10 @@ _lock = threading.Lock()
 
 def load_data():
     if DATA_FILE.exists():
-        return json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        for n in data["notes"]:  # notes saved before dates existed
+            n.setdefault("date", n["created_at"][:10])
+        return data
     return {"notes": [], "organised": None}
 
 
@@ -82,14 +85,31 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def make_note(title, text, source):
+def today():
+    return datetime.now().date().isoformat()
+
+
+def clean_date(value):
+    """Return value if it's a real YYYY-MM-DD date, otherwise today's date."""
+    try:
+        return datetime.strptime((value or "").strip(), "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        return today()
+
+
+def make_note(title, text, source, date=None):
     return {
         "id": uuid.uuid4().hex[:8],
         "title": title.strip() or "Untitled note",
         "text": text.strip(),
         "source": source,  # "typed" or "photo"
+        "date": clean_date(date),  # the day the note is from (YYYY-MM-DD)
         "created_at": now_iso(),
     }
+
+
+def sort_by_date(notes):
+    return sorted(notes, key=lambda n: (n["date"], n["created_at"]))
 
 
 # ---------------------------------------------------------------------------
@@ -200,8 +220,9 @@ TRANSCRIBE_SCHEMA = {
                 "properties": {
                     "title": {"type": "string"},
                     "text": {"type": "string"},
+                    "date": {"type": "string"},
                 },
-                "required": ["title", "text"],
+                "required": ["title", "text", "date"],
                 "additionalProperties": False,
             },
         },
@@ -217,6 +238,7 @@ TRANSCRIBE_PROMPT = """This is a photo of handwritten notes.
 2. Split it into separate notes, one per distinct idea or topic on the page. A page about one thing is one note.
 3. For each note give a short title (max 8 words) and the text. Keep the writer's meaning and wording; fix obvious spelling only. Keep bullet points as lines starting with "- ".
 4. If a word is hard to read, write your best guess followed by [?] and also list it in unclear_words.
+5. date: if the page shows a date for a note (for example "12/11" or "Tues 3rd Nov"), give it as YYYY-MM-DD. Today is {today}; use that to fill in a missing year or work out a weekday. If no date is written for a note, use an empty string. Never guess a date that isn't written.
 
 If the photo contains no handwriting or text at all, return an empty notes list."""
 
@@ -258,17 +280,84 @@ Notes:
 """
 
 
+CHAT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "answer": {"type": "string"},
+        "note_ids": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["answer", "note_ids"],
+    "additionalProperties": False,
+}
+
+CHAT_PROMPT = """You answer questions about the user's notes. Today is {today}.
+
+Rules:
+- Use ONLY the notes below. Never use outside knowledge and never invent facts, names, dates or numbers.
+- note_ids: list the id of EVERY note that is about the subject asked, not just the most important ones.
+- If no note is about the subject, set note_ids to [] and say plainly that there are no notes about it. Do not guess or fill the gap.
+- When notes are about the subject, answer briefly from them and mention dates (each note has one) where they help, e.g. "On 12 Nov you noted...". If notes disagree, say so and give both with their dates.
+- Keep the answer short and plain.
+
+Notes (oldest first):
+{notes}
+
+Conversation so far:
+{history}
+
+User's question: {question}"""
+
+MAX_CHAT_NOTES = 200
+NO_NOTES_ANSWER = "I couldn't find any notes about that, so I can't answer it from your notes."
+
+
+def pick_candidate_notes(notes, question):
+    """If there are lots of notes, keep the ones that share the most words with the question."""
+    if len(notes) <= MAX_CHAT_NOTES:
+        return notes
+    words = {w for w in question.lower().split() if len(w) > 2}
+    def score(n):
+        blob = (n["title"] + " " + n["text"]).lower()
+        return sum(w in blob for w in words)
+    return sorted(notes, key=score, reverse=True)[:MAX_CHAT_NOTES]
+
+
+def chat_about_notes(notes, question, history):
+    if not notes:
+        return {"answer": "You don't have any notes yet. Add some on the left first.", "note_ids": []}
+    if DEMO_MODE:
+        return demo_chat(notes, question)
+    candidates = sort_by_date(pick_candidate_notes(notes, question))
+    listing = "\n\n".join(
+        f"[id: {n['id']}] [date: {n['date']}] {n['title']}\n{n['text']}" for n in candidates
+    )
+    convo = "\n".join(
+        f"{'User' if h.get('role') == 'user' else 'Assistant'}: {str(h.get('text', ''))[:1000]}"
+        for h in history[-6:]
+    ) or "(none)"
+    prompt = (CHAT_PROMPT.replace("{today}", datetime.now().strftime("%A %Y-%m-%d"))
+              .replace("{notes}", listing).replace("{history}", convo).replace("{question}", question))
+    result = ask_ai_for_json(prompt, CHAT_SCHEMA)
+    valid = {n["id"] for n in candidates}
+    result["note_ids"] = [i for i in dict.fromkeys(result["note_ids"]) if i in valid]
+    # Safety net: an answer that isn't backed by any note is never shown.
+    if not result["note_ids"]:
+        result["answer"] = NO_NOTES_ANSWER
+    return result
+
+
 def transcribe_photo(image_bytes, media_type):
     if DEMO_MODE:
         return demo_transcription()
-    return ask_ai_for_json(TRANSCRIBE_PROMPT, TRANSCRIBE_SCHEMA, image=(image_bytes, media_type))
+    prompt = TRANSCRIBE_PROMPT.replace("{today}", datetime.now().strftime("%A %Y-%m-%d"))
+    return ask_ai_for_json(prompt, TRANSCRIBE_SCHEMA, image=(image_bytes, media_type))
 
 
 def organise_notes(notes):
     if DEMO_MODE:
         return demo_organise(notes)
     listing = "\n\n".join(
-        f"[id: {n['id']}] ({n['source']}) {n['title']}\n{n['text']}" for n in notes
+        f"[id: {n['id']}] [date: {n['date']}] ({n['source']}) {n['title']}\n{n['text']}" for n in sort_by_date(notes)
     )
     result = ask_ai_for_json(ORGANISE_PROMPT + listing, ORGANISE_SCHEMA)
     # Drop any ids the AI made up, and put forgotten notes in an "Other" topic.
@@ -296,18 +385,35 @@ def demo_transcription():
         "notes": [
             {
                 "title": "Trial site meeting - Tues",
+                "date": "",
                 "text": "- Recruitment behind at Leeds site (12 of 40)\n- Ask Priya re: extra nurse cover\n- Next check-in Fri 28th",
             },
             {
                 "title": "Hackathon pitch ideas",
+                "date": "",
                 "text": "- Demo: photo of notes -> organised board\n- Keep it to 3 min\n- Sam doing slides",
             },
             {
                 "title": "Call supplier about delayed batch",
+                "date": "",
                 "text": "Call supplier re delayed batch before Thurs",
             },
         ],
         "unclear_words": [],
+    }
+
+
+def demo_chat(notes, question):
+    stop = {"what", "about", "have", "the", "any", "notes", "did", "are", "there", "with", "for", "and", "how", "who", "when", "this", "that", "from", "show", "all", "tell"}
+    words = [w.strip("?.,!").lower() for w in question.split()]
+    words = [w for w in words if len(w) > 2 and w not in stop]
+    hits = [n for n in sort_by_date(notes)
+            if any(w in (n["title"] + " " + n["text"]).lower() for w in words)]
+    if not hits:
+        return {"answer": NO_NOTES_ANSWER, "note_ids": []}
+    return {
+        "answer": f"(Demo mode - simple word match, no AI.) I found {len(hits)} note{'s' if len(hits) > 1 else ''} about that, shown below oldest first.",
+        "note_ids": [n["id"] for n in hits],
     }
 
 
@@ -387,7 +493,7 @@ def add_note():
         title = first_line if len(first_line) <= 60 else first_line[:60].rsplit(" ", 1)[0] + "…"
     with _lock:
         data = load_data()
-        note = make_note(title, text, "typed")
+        note = make_note(title, text, "typed", body.get("date"))
         data["notes"].append(note)
         save_data(data)
     return jsonify(note=note)
@@ -411,10 +517,42 @@ def add_photo():
         return jsonify(error="No handwriting was found in that photo."), 422
     with _lock:
         data = load_data()
-        new_notes = [make_note(n["title"], n["text"], "photo") for n in result["notes"]]
+        new_notes = [make_note(n["title"], n["text"], "photo", n.get("date")) for n in result["notes"]]
         data["notes"].extend(new_notes)
         save_data(data)
     return jsonify(notes=new_notes, unclear_words=result["unclear_words"])
+
+
+@app.patch("/api/notes/<note_id>")
+def update_note(note_id):
+    body = request.get_json(silent=True) or {}
+    with _lock:
+        data = load_data()
+        for n in data["notes"]:
+            if n["id"] == note_id:
+                if "date" in body:
+                    n["date"] = clean_date(body["date"])
+                save_data(data)
+                return jsonify(note=n)
+    return jsonify(error="Note not found."), 404
+
+
+@app.post("/api/chat")
+def chat():
+    body = request.get_json(silent=True) or {}
+    question = (body.get("message") or "").strip()
+    if not question:
+        return jsonify(error="Type a question first."), 400
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    with _lock:
+        notes = load_data()["notes"]
+    try:
+        result = chat_about_notes(notes, question[:2000], history)
+    except AIError as exc:
+        return jsonify(error=str(exc)), 502
+    by_id = {n["id"]: n for n in notes}
+    matched = sort_by_date([by_id[i] for i in result["note_ids"] if i in by_id])
+    return jsonify(answer=result["answer"], notes=matched)
 
 
 @app.delete("/api/notes/<note_id>")
