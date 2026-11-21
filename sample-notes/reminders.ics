@@ -1,0 +1,15 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Sample//Notes//EN
+BEGIN:VEVENT
+UID:leeds-review@example
+DTSTART:20261127T100000
+SUMMARY:Leeds site review with Dr Okafor and Priya
+DESCRIPTION:Monthly recruitment review. Bring latest numbers.
+END:VEVENT
+BEGIN:VTODO
+UID:q4-numbers@example
+DUE:20261124T170000
+SUMMARY:Send Q4 recruitment numbers to Sam
+END:VTODO
+END:VCALENDAR

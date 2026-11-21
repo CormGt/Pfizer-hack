@@ -3,400 +3,520 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Notes Manager</title>
+<title>Second Brain</title>
 <style>
   :root {
     color-scheme: dark;
     --bg: #0d1117; --card: #161b22; --card-2: #1c2230; --ink: #e6edf3; --body: #c3ccd8; --muted: #8b95a5;
     --line: #2a3140; --accent: #7c8cff; --accent-ink: #0d1117; --accent-soft: rgba(124,140,255,.14);
-    --warn: #f0b45b; --warn-soft: rgba(240,180,91,.12); --ok: #4ade80; --ok-soft: rgba(74,222,128,.14);
-    --err: #f87171;
+    --warn: #f0b45b; --warn-soft: rgba(240,180,91,.12); --ok: #4ade80; --ok-soft: rgba(74,222,128,.13);
+    --err: #f87171; --err-soft: rgba(248,113,113,.12);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
          background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.45; }
-  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px;
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 24px;
            display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   header h1 { font-size: 20px; margin: 0; }
   header .sub { color: var(--muted); font-size: 13px; }
-  .demo-badge { background: var(--warn-soft); color: var(--warn); font-size: 12px; font-weight: 600;
-                padding: 3px 8px; border-radius: 999px; }
-  main { display: grid; grid-template-columns: 380px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  .grow { flex: 1; }
+  .badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; border: 0; cursor: pointer; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.err { background: var(--err-soft); color: var(--err); }
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  .panel h2 { font-size: 15px; margin: 0 0 10px; }
-  textarea { background: var(--card-2); color: var(--ink); width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 10px;
-             font: inherit; resize: vertical; }
-  textarea:focus { outline: none; border-color: var(--accent); }
-  button, .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 9px 14px;
-                 font: inherit; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .panel h2 { font-size: 15px; margin: 0 0 4px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  textarea, input[type=text], input[type=date], select { background: var(--card-2); color: var(--ink); border: 1px solid var(--line);
+           border-radius: 8px; padding: 9px 10px; font: inherit; color-scheme: dark; }
+  textarea { width: 100%; min-height: 70px; resize: vertical; }
+  input[type=text] { width: 100%; }
+  textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+  button { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 9px 14px;
+           font: inherit; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
   button.secondary { background: var(--accent-soft); color: var(--accent); }
-  button.link { background: none; color: var(--muted); padding: 2px 6px; font-weight: 400; font-size: 13px; }
+  button.ghost { background: none; color: var(--muted); padding: 4px 8px; font-weight: 400; font-size: 13px; }
+  button.danger { background: var(--err-soft); color: var(--err); }
   button:disabled { opacity: .55; cursor: wait; }
   .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
-  .drop { display: block; border: 2px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted);
-          cursor: pointer; transition: .15s; }
-  .drop.over, .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-  .drop input { display: none; }
-  .preview { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 10px; display: none; }
   .status { font-size: 13px; margin-top: 8px; min-height: 18px; }
   .status.err { color: var(--err); } .status.ok { color: var(--ok); }
-  .note { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: var(--card-2); }
-  .note.flash { animation: flash 1.6s ease-out; }
-  @keyframes flash { from { background: var(--ok-soft); } to { background: var(--card-2); } }
-  .note-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
-  .note-title { font-weight: 600; }
-  .note-text { white-space: pre-wrap; color: var(--body); font-size: 14px; margin-top: 4px; }
-  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; }
-  .tag.photo { background: var(--ok-soft); color: var(--ok); }
-  .board-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-  .board-head h2 { margin: 0; font-size: 18px; }
-  .overview { border: 1px solid rgba(124,140,255,.3); background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
-  .topics { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-  .topic { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; scroll-margin-top: 16px; }
-  .topic.hl { outline: 3px solid var(--accent); }
-  .topic h3 { margin: 0 0 6px; font-size: 16px; }
-  .topic .summary { color: var(--body); margin: 0 0 10px; }
-  .topic h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 6px; }
-  .actions { margin: 0; padding-left: 0; list-style: none; }
-  .actions li { display: flex; gap: 8px; align-items: start; margin-bottom: 4px; }
-  .actions input { margin-top: 4px; }
-  .actions li.done span { text-decoration: line-through; color: var(--muted); }
-  details.src summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-  .chip { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft);
-          color: var(--accent); margin: 0 4px 4px 0; cursor: pointer; border: 0; font-weight: 500; }
-  .questions { border: 1px solid rgba(240,180,91,.3); color: var(--ink); background: var(--warn-soft); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
-  .questions ul { margin: 6px 0 0; padding-left: 18px; }
-  .empty { color: var(--muted); text-align: center; padding: 40px 16px; }
   .spinner { width: 14px; height: 14px; border: 2px solid rgba(13,17,23,.35); border-top-color: var(--accent-ink); border-radius: 50%;
              animation: spin .8s linear infinite; display: none; }
   button.busy .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .stale { font-size: 12px; color: var(--warn); }
-  .date { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  input.date-edit { background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 6px;
-                    font: inherit; font-size: 12px; padding: 1px 4px; color-scheme: dark; cursor: pointer; }
-  input.date-edit:hover, input.date-edit:focus { border-color: var(--line); outline: none; color: var(--ink); }
-  .date-row { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
-  input[type=date].field { background: var(--card-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
-                           padding: 7px 8px; font: inherit; color-scheme: dark; }
-  .tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+
+  /* What I can see */
+  .tree { font-size: 14px; }
+  .tree .root { margin-bottom: 10px; }
+  .tree .root-head { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .tree .path { color: var(--muted); font-size: 12px; margin: 0 0 4px 24px; word-break: break-all; }
+  .tree .folder { margin-left: 18px; }
+  .tree .file { margin-left: 40px; color: var(--body); }
+  .tree label { display: flex; gap: 6px; align-items: center; padding: 2px 0; cursor: pointer; }
+  .tree label.off { color: var(--muted); text-decoration: line-through; }
+  .tree input { accent-color: var(--accent); }
+  .tree details > summary { list-style: none; cursor: pointer; }
+  .tree details > summary::-webkit-details-marker { display: none; }
+  .paused-note { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin-bottom: 8px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px; margin-bottom: 14px; flex-wrap: wrap; }
   .tabs button { background: none; color: var(--muted); padding: 7px 14px; }
   .tabs button.on { background: var(--accent-soft); color: var(--accent); }
-  .chat { display: flex; flex-direction: column; height: calc(100vh - 170px); min-height: 480px; }
-  .chat-log { flex: 1; overflow-y: auto; padding: 4px 2px 12px; }
-  .msg { max-width: 85%; margin-bottom: 14px; }
-  .msg.user { margin-left: auto; background: var(--accent); color: var(--accent-ink); padding: 9px 13px; border-radius: 14px 14px 4px 14px; font-weight: 500; width: fit-content; }
-  .msg.ai .bubble { background: var(--card); border: 1px solid var(--line); padding: 11px 14px; border-radius: 14px 14px 14px 4px; white-space: pre-wrap; }
-  .msg.ai.none .bubble { border-color: rgba(240,180,91,.35); }
-  .msg .found { margin-top: 8px; }
-  .msg .found h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; }
-  .timeline .note { border-left: 3px solid var(--accent); }
-  .chat-input { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
-  .chat-input textarea { min-height: 46px; height: 46px; resize: none; }
-  .suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; justify-content: center; }
+
+  /* Brief */
+  .ask-bar { display: flex; gap: 8px; }
+  .ask-bar input { flex: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 0; cursor: pointer; font-weight: 500; }
+  .headline { border: 1px solid rgba(124,140,255,.35); background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; margin: 16px 0; font-size: 16px; font-weight: 600; }
+  .headline.none { border-color: rgba(240,180,91,.4); background: var(--warn-soft); }
+  .section { margin-bottom: 14px; }
+  .section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
+  .item { border: 1px solid var(--line); background: var(--card-2); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .item.low { border-style: dashed; }
+  .item .line { display: block; }
+  .item .line .tags { margin-top: 6px; }
+  .item .txt { color: var(--ink); }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); white-space: nowrap; font-weight: 600; }
+  .tag.ok { background: var(--ok-soft); color: var(--ok); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.err { background: var(--err-soft); color: var(--err); }
+  .from { margin-top: 6px; font-size: 13px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+  .from q { color: var(--body); font-style: italic; }
+  .src-btn { background: none; border: 0; color: var(--accent); padding: 0; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .warning { font-size: 12px; color: var(--warn); margin-top: 4px; }
+  .gaps { border: 1px solid rgba(240,180,91,.3); background: var(--warn-soft); border-radius: 12px; padding: 12px 16px; }
+  .gaps ul { margin: 6px 0 0; padding-left: 18px; }
+  .explain { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: var(--card); margin-top: 14px; color: var(--body); font-size: 14px; }
+  .explain h3 { margin: 0 0 6px; font-size: 14px; color: var(--ink); }
+  .srclist { margin-top: 10px; display: grid; gap: 6px; }
+  .src { display: flex; gap: 8px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+  .src .p { color: var(--muted); }
+  .empty { color: var(--muted); text-align: center; padding: 36px 16px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 1100px) { .two { grid-template-columns: 1fr; } }
+
+  /* Chat */
+  .chat-log { min-height: 200px; }
+  .msg { margin-bottom: 14px; }
+  .msg.user { margin-left: auto; background: var(--accent); color: var(--accent-ink); padding: 9px 13px; border-radius: 14px 14px 4px 14px; font-weight: 500; width: fit-content; max-width: 80%; }
+  .bubble { background: var(--card-2); border: 1px solid var(--line); padding: 11px 14px; border-radius: 14px 14px 14px 4px; white-space: pre-wrap; }
+  .bubble.none { border-color: rgba(240,180,91,.45); }
+
+  /* Connect */
+  .threads { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .thread { background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .thread h4 { margin: 0 0 6px; }
+  .thread p { margin: 0 0 8px; color: var(--body); }
+  .link-item { border-left: 3px solid var(--accent); padding: 8px 12px; margin-bottom: 8px; background: var(--card-2); border-radius: 0 8px 8px 0; }
+
+  /* Privacy */
+  .checks { display: grid; gap: 10px; }
+  .check { display: flex; gap: 12px; align-items: start; border: 1px solid var(--line); background: var(--card-2); border-radius: 10px; padding: 12px; }
+  .check .icon { font-size: 22px; line-height: 1; }
+  .check > div > b { display: block; margin-bottom: 2px; }
+  .check .d { color: var(--body); font-size: 14px; }
+  .log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; max-height: 260px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .log div { padding: 2px 0; color: var(--body); }
+  .log .blocked { color: var(--err); } .log .connect { color: var(--ok); } .log .write { color: var(--warn); }
+  code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 13px; }
+  ol.steps { margin: 6px 0 0; padding-left: 20px; color: var(--body); }
+  ol.steps li { margin-bottom: 6px; }
+
+  /* Note viewer */
+  dialog { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; max-width: 720px; width: calc(100% - 32px); padding: 0; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); gap: 8px; }
+  .dlg-body { padding: 16px; max-height: 70vh; overflow: auto; }
+  .dlg-body pre { white-space: pre-wrap; font: inherit; margin: 0; color: var(--body); }
+  .dlg-body img { max-width: 100%; border-radius: 8px; }
+  mark { background: rgba(240,180,91,.35); color: var(--ink); border-radius: 3px; padding: 0 2px; }
+  .preview { max-width: 100%; max-height: 140px; border-radius: 8px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🗂️ Notes Manager</h1>
-  <span class="sub">Scattered notes in, organised plan out. AI: {{ "Local (Ollama)" if provider == "ollama" else "Claude" }} · {{ model }}</span>
-  {% if demo_mode %}<span class="demo-badge">DEMO MODE: example results, no AI is called</span>{% endif %}
+  <h1>🧠 Second Brain</h1>
+  <span class="sub">Meeting prep from your own scattered notes · AI runs on this computer ({{ model }})</span>
+  {% if demo_mode %}<span class="badge warn">DEMO MODE: example results, no AI</span>{% endif %}
+  <span class="grow"></span>
+  <button class="badge ok" id="trustBadge" onclick="showTab('privacy')">🔒 Stays on this computer · no copies kept</button>
 </header>
 
 <main>
-  <section>
+  <aside>
     <div class="panel">
-      <h2>📷 Add a photo of handwritten notes</h2>
-      <label class="drop" id="drop">
-        <input type="file" id="photo" accept="image/*" capture="environment">
-        <div><strong>Tap to take or choose a photo</strong><br><span style="font-size:13px">or drag an image here</span></div>
-      </label>
-      <img id="preview" class="preview" alt="">
+      <h2>👁️ What I can see</h2>
+      <p class="hint">Untick anything you don't want me to read. It takes effect straight away and I keep no copy.</p>
+      <div id="pausedNote" class="paused-note" hidden>Paused: I can't see any of your notes.</div>
+      <div class="tree" id="tree"></div>
       <div class="row">
-        <button id="readPhoto" disabled><span class="spinner"></span>Read handwriting</button>
+        <button class="secondary" id="pauseBtn" onclick="togglePause()">⏸ Pause everything</button>
       </div>
-      <div class="status" id="photoStatus"></div>
+      <details style="margin-top:10px">
+        <summary class="hint" style="cursor:pointer;margin:0">➕ Add another folder of notes</summary>
+        <div class="row">
+          <input type="text" id="folderPath" placeholder="e.g. ~/Documents/Notes">
+          <button class="secondary" onclick="addFolder()">Add</button>
+        </div>
+      </details>
+      <div class="status" id="treeStatus"></div>
     </div>
 
     <div class="panel">
-      <h2>✏️ Type a quick note</h2>
-      <textarea id="noteText" placeholder="e.g. Call supplier about the delayed batch before Thursday"></textarea>
-      <div class="row" style="justify-content:space-between">
-        <label class="date-row">📅 Date <input type="date" id="noteDate" class="field"></label>
-        <button id="addNote" class="secondary">Add note</button>
+      <h2>✏️ Capture a note</h2>
+      <p class="hint">Saved as a plain text file in <em>your</em> notes folder (inbox), not inside this app.</p>
+      <textarea id="capText" placeholder="Type a note, or read one from a photo below"></textarea>
+      <div class="row">
+        <label class="btn secondary" style="cursor:pointer;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 12px;font-weight:600">
+          📷 Photo of handwriting<input type="file" id="capPhoto" accept="image/*" capture="environment" hidden>
+        </label>
+        <input type="date" id="capDate">
       </div>
-      <div class="status" id="noteStatus"></div>
-    </div>
-
-    <div class="panel">
-      <div class="board-head" style="margin-bottom:8px">
-        <h2 style="margin:0">📥 All notes (<span id="count">0</span>)</h2>
-        <button class="link" id="reset">Clear all</button>
+      <img id="capPreview" class="preview" hidden alt="">
+      <div class="row">
+        <select id="capRoot"></select>
+        <button id="capSave" onclick="saveNote()">Save to my notes</button>
       </div>
-      <div id="notes"></div>
+      <div class="status" id="capStatus"></div>
     </div>
-  </section>
+  </aside>
 
   <section>
-    <div class="board-head">
-      <div class="tabs">
-        <button id="tabChat" class="on" onclick="showTab('chat')">💬 Ask your notes</button>
-        <button id="tabBoard" onclick="showTab('board')">🧩 Organised board</button>
+    <div class="tabs">
+      <button id="tab-prep" class="on" onclick="showTab('prep')">📋 Prepare for a meeting</button>
+      <button id="tab-ask" onclick="showTab('ask')">💬 Find something</button>
+      <button id="tab-connect" onclick="showTab('connect')">🧩 Join the dots</button>
+      <button id="tab-privacy" onclick="showTab('privacy')">🔒 Privacy check</button>
+    </div>
+
+    <!-- PREPARE -->
+    <div id="view-prep">
+      <div class="panel">
+        <h2>What meeting are you walking into?</h2>
+        <p class="hint">I'll pull together everything your notes say about it: latest facts, decisions, open actions, what's changed since, and what your notes <em>don't</em> tell you.</p>
+        <div class="ask-bar">
+          <input type="text" id="meeting" placeholder="e.g. Leeds site review on Friday" onkeydown="if(event.key==='Enter')prep()">
+          <button id="prepBtn" onclick="prep()"><span class="spinner"></span>Prepare me</button>
+        </div>
+        <div class="chips">
+          <button class="chip" onclick="prep('Leeds site review with Dr Okafor and Priya')">Leeds site review with Dr Okafor and Priya</button>
+          <button class="chip" onclick="prep('1:1 with Priya')">1:1 with Priya</button>
+          <button class="chip" onclick="prep('Quarterly budget planning')">Quarterly budget planning</button>
+        </div>
+        <div class="status" id="prepStatus"></div>
       </div>
-      <div class="row" style="margin:0" id="boardTools" hidden>
-        <span class="stale" id="stale"></span>
-        <button id="organise"><span class="spinner"></span>Organise my notes</button>
+      <div id="brief"></div>
+    </div>
+
+    <!-- ASK -->
+    <div id="view-ask" hidden>
+      <div class="panel">
+        <h2>Find something you know you wrote down</h2>
+        <p class="hint">Ask in your own words. I only answer from your notes, show where each part came from, and say so if it isn't there.</p>
+        <div class="chat-log" id="chatLog"></div>
+        <div class="ask-bar">
+          <input type="text" id="question" placeholder="e.g. What did we decide about opening Bristol?" onkeydown="if(event.key==='Enter')askQ()">
+          <button id="askBtn" onclick="askQ()"><span class="spinner"></span>Ask</button>
+        </div>
+        <div class="chips">
+          <button class="chip" onclick="askQ('What did we decide about opening Bristol?')">What did we decide about opening Bristol?</button>
+          <button class="chip" onclick="askQ('How much is the nurse budget?')">How much is the nurse budget?</button>
+          <button class="chip" onclick="askQ('What is the parking policy at the Leeds office?')">What is the parking policy at the Leeds office?</button>
+        </div>
+        <div class="status" id="askStatus"></div>
       </div>
     </div>
 
-    <div id="chatView" class="panel chat">
-      <div class="chat-log" id="chatLog">
-        <div class="empty" id="chatEmpty">Ask anything about your notes, like <em>"what do I have on the Leeds trial?"</em><br>
-          The AI finds every note on that subject and shows them in date order. If there's nothing in your notes, it says so instead of making something up.
-          <div class="suggest">
-            <button class="chip" onclick="ask('What notes do I have about the trial?')">What notes do I have about the trial?</button>
-            <button class="chip" onclick="ask('What do I need to do this week?')">What do I need to do this week?</button>
-          </div>
+    <!-- CONNECT -->
+    <div id="view-connect" hidden>
+      <div class="panel">
+        <h2>Join the dots</h2>
+        <p class="hint">Finds the running threads in your notes and links between notes from different places and dates that you might have missed.</p>
+        <button id="connectBtn" onclick="connectDots()"><span class="spinner"></span>Join the dots</button>
+        <div class="status" id="connectStatus"></div>
+      </div>
+      <div id="connectOut"></div>
+    </div>
+
+    <!-- PRIVACY -->
+    <div id="view-privacy" hidden>
+      <div class="panel">
+        <h2>🔒 Privacy check: your knowledge stays yours</h2>
+        <p class="hint">Live from the app. Everything below is worked out right now, not a promise written in advance.</p>
+        <div class="checks" id="checks"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="secondary" id="testBtn" onclick="testBlock()">🧪 Try to reach the internet</button>
+          <button class="danger" onclick="forget()">🧹 Forget everything now</button>
+          <button class="ghost" onclick="loadPrivacy()">↻ Refresh</button>
+        </div>
+        <div class="status" id="privStatus"></div>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <h2>Check it yourself, without trusting this app</h2>
+          <ol class="steps">
+            <li><b>Turn off Wi-Fi</b> and use the app. It still works, because nothing needs the internet.</li>
+            <li>While the app is running, in Terminal run <code>lsof -nP -iTCP | grep -i python</code>. Every line should show <code>127.0.0.1</code> or <code>localhost</code> (this computer), nothing else.</li>
+            <li>Look in the app's folder: there's no database or notes file. Your notes are only in your own folders.</li>
+            <li>Stop the app (<code>Ctrl + C</code>). Anything it held in memory is gone.</li>
+            <li>The whole app is one file, <code>app.py</code>. Search it for <code>socket.socket.connect</code> to see the network lock.</li>
+          </ol>
+        </div>
+        <div class="panel">
+          <h2>What the app has done this session</h2>
+          <div class="log" id="log"></div>
         </div>
       </div>
-      <div class="chat-input">
-        <textarea id="chatText" placeholder="Ask about a subject…"></textarea>
-        <button id="chatSend"><span class="spinner"></span>Send</button>
-      </div>
-    </div>
-
-    <div id="boardView" hidden>
-      <div class="status" id="orgStatus"></div>
-      <div id="board"><div class="empty panel">Add some notes on the left, then press <strong>Organise my notes</strong>.<br>The AI will group related notes, summarise each topic and pull out action items.</div></div>
     </div>
   </section>
 </main>
 
+<dialog id="viewer">
+  <div class="dlg-head"><strong id="vTitle"></strong><button class="ghost" onclick="viewer.close()">✕ Close</button></div>
+  <div class="dlg-body" id="vBody"></div>
+</dialog>
+
 <script>
 const $ = (id) => document.getElementById(id);
-let state = { notes: [], organised: null };
-let selectedFile = null;
-const doneKey = "notes-manager-done";
-let done = {};
-try { done = JSON.parse(localStorage.getItem(doneKey) || "{}"); } catch (e) {}
+const viewer = $("viewer");
+let access = null, lastSources = {}, chatHistory = [];
+const KIND = { note: "📝", photo: "✍️", screenshot: "🖼️", link: "🔗", reminder: "📅" };
 
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function setStatus(el, msg, kind) { el.textContent = msg || ""; el.className = "status " + (kind || ""); }
 function busy(btn, on) { btn.disabled = on; btn.classList.toggle("busy", on); }
-
 async function api(path, opts = {}) {
+  if (opts.json) { opts.method = opts.method || "POST"; opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(opts.json); }
   const res = await fetch(path, opts);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Something went wrong (" + res.status + ")");
   return data;
 }
-
-function fmtDate(d) {
-  if (!d) return "";
-  const dt = new Date(d + "T00:00:00");
-  return isNaN(dt) ? d : dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-}
-function byDate(a, b) { return (a.date + a.created_at).localeCompare(b.date + b.created_at); }
-
-// A read-only note card (used on the board and in chat answers)
-function noteCard(n, extra = "") {
-  return `<div class="note" ${extra}><div class="note-head"><div class="note-title">${esc(n.title)}</div>
-    <span class="tag ${n.source}">${n.source === "photo" ? "📷" : "typed"}</span></div>
-    <div class="date">📅 ${esc(fmtDate(n.date))}</div>
-    <div class="note-text">${esc(n.text)}</div></div>`;
+function fmtDate(d) { const dt = new Date(d + "T00:00:00"); return dt.toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+function age(days) { return days < 0 ? "in " + (-days) + " day" + (days === -1 ? "" : "s") : days === 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? days + " days ago" : Math.round(days / 7) + " weeks ago"; }
+function showTab(t) {
+  for (const n of ["prep", "ask", "connect", "privacy"]) { $("view-" + n).hidden = n !== t; $("tab-" + n).classList.toggle("on", n === t); }
+  if (t === "privacy") loadPrivacy();
 }
 
-function renderNotes(flashIds = []) {
-  $("count").textContent = state.notes.length;
-  if (!state.notes.length) { $("notes").innerHTML = '<div class="empty" style="padding:16px">No notes yet.</div>'; return; }
-  $("notes").innerHTML = state.notes.slice().sort(byDate).reverse().map(n => `
-    <div class="note ${flashIds.includes(n.id) ? "flash" : ""}">
-      <div class="note-head">
-        <div class="note-title">${esc(n.title)}</div>
-        <div style="display:flex;gap:4px;align-items:center">
-          <span class="tag ${n.source}">${n.source === "photo" ? "📷 from photo" : "typed"}</span>
-          <button class="link" title="Delete" onclick="delNote('${n.id}')">✕</button>
-        </div>
-      </div>
-      <span class="date">📅</span><input type="date" class="date-edit" value="${esc(n.date)}" title="Change the date" onchange="setDate('${n.id}', this.value)">
-      <div class="note-text">${esc(n.text)}</div>
+/* ---------- What I can see ---------- */
+async function loadAccess() { renderAccess(await api("/api/access")); }
+function renderAccess(a) {
+  access = a;
+  $("pausedNote").hidden = !a.paused;
+  $("pauseBtn").textContent = a.paused ? "▶ Resume" : "⏸ Pause everything";
+  $("tree").style.opacity = a.paused ? .45 : 1;
+  if (!a.roots.length) { $("tree").innerHTML = '<div class="hint">No folders yet. Add one below.</div>'; }
+  else $("tree").innerHTML = a.roots.map(r => `
+    <div class="root">
+      <div class="root-head"><label class="${r.visible ? "" : "off"}"><input type="checkbox" ${r.visible ? "checked" : ""} onchange="toggle('${esc(r.key)}', this.checked)">📁 ${esc(r.name)}</label>
+        <span class="grow"></span><button class="ghost" title="Stop using this folder" onclick="removeFolder('${esc(r.key)}')">remove</button></div>
+      <div class="path">${esc(r.path)}</div>
+      ${r.folders.map(f => `
+        <details class="folder" ${f.files.length < 4 ? "open" : ""}>
+          <summary>${f.is_top ? `<div class="hint" style="margin:2px 0">top level ▾</div>` :
+            `<label class="${f.visible ? "" : "off"}"><input type="checkbox" ${f.visible ? "checked" : ""} onclick="event.stopPropagation()" onchange="toggle('${esc(f.key)}', this.checked)">📂 ${esc(f.name)} <span class="hint" style="margin:0">(${f.files.length})</span></label>`}</summary>
+          ${f.files.map(x => `<label class="file ${x.visible ? "" : "off"}"><input type="checkbox" ${x.visible ? "checked" : ""} onchange="toggle('${esc(x.key)}', this.checked)">${KIND[x.kind]} ${esc(x.name)}</label>`).join("")}
+        </details>`).join("")}
     </div>`).join("");
+  $("capRoot").innerHTML = a.roots.map((r, i) => `<option value="${i}">Save to ${esc(r.name)}/inbox</option>`).join("");
+}
+async function toggle(key, visible) {
+  try { renderAccess(await api("/api/access/toggle", { json: { key, visible } })); setStatus($("treeStatus"), visible ? "Shown. I can read it from now on." : "Hidden. I won't read it.", "ok"); }
+  catch (e) { setStatus($("treeStatus"), e.message, "err"); }
+}
+async function togglePause() { renderAccess(await api("/api/access/pause", { json: { paused: !access.paused } })); }
+async function addFolder() {
+  try { renderAccess(await api("/api/access/folder", { json: { path: $("folderPath").value } })); $("folderPath").value = ""; setStatus($("treeStatus"), "Folder added.", "ok"); }
+  catch (e) { setStatus($("treeStatus"), e.message, "err"); }
+}
+async function removeFolder(key) {
+  try { renderAccess(await api("/api/access/folder", { method: "DELETE", json: { key } })); setStatus($("treeStatus"), "Folder removed. Your files are untouched.", "ok"); }
+  catch (e) { setStatus($("treeStatus"), e.message, "err"); }
 }
 
-async function setDate(id, value) {
-  if (!value) return;
-  await api("/api/notes/" + id, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: value }) });
-  refresh();
+/* ---------- Showing where things came from ---------- */
+function remember(sources) { for (const s of sources || []) lastSources[s.id] = s; }
+function srcLabel(id) { const s = lastSources[id]; return s ? `${KIND[s.kind]} ${s.name} · ${fmtDate(s.date)}` : id; }
+function itemHTML(it, extraTags = "") {
+  const s = lastSources[it.source] || {};
+  const tags = [];
+  if (it.verified) tags.push('<span class="tag ok" title="I found these exact words in your note">✓ checked</span>');
+  else tags.push('<span class="tag err" title="I couldn\'t match this to your note">⚠ unchecked</span>');
+  if (it.confidence === "low" && it.verified) tags.push('<span class="tag warn">not sure</span>');
+  return `<div class="item ${it.confidence === "low" ? "low" : ""}">
+    <div class="line"><span class="txt">${esc(it.text)}</span><span class="tags">${extraTags}${tags.join("")}</span></div>
+    <div class="from">From <button class="src-btn" onclick="openNote('${esc(it.source)}', ${esc(JSON.stringify(JSON.stringify(it.quote || "")))})">${esc(srcLabel(it.source))}</button> <q>${esc(it.quote)}</q></div>
+    ${(it.warnings || []).map(w => `<div class="warning">⚠ ${esc(w)}</div>`).join("")}
+  </div>`;
 }
-
-function renderBoard() {
-  const o = state.organised;
-  const byId = Object.fromEntries(state.notes.map(n => [n.id, n]));
-  if (!o) { return; }
-  const known = new Set(o.topics.flatMap(t => t.note_ids));
-  const newCount = state.notes.filter(n => !known.has(n.id)).length;
-  $("stale").textContent = newCount ? `${newCount} new note${newCount > 1 ? "s" : ""} since last organise` : "";
-  const topicNames = new Set(o.topics.map(t => t.name));
-  $("board").innerHTML = `
-    <div class="overview"><strong>Big picture:</strong> ${esc(o.overview)}</div>
-    <div class="topics">
-      ${o.topics.map((t, ti) => {
-        const notes = t.note_ids.map(id => byId[id]).filter(Boolean);
-        return `
-        <div class="topic" id="topic-${ti}" data-name="${esc(t.name)}">
-          <h3>${esc(t.name)}</h3>
-          <p class="summary">${esc(t.summary)}</p>
-          ${t.action_items.length ? `<h4>Action items</h4><ul class="actions">${t.action_items.map((a, ai) => {
-            const k = t.name + "::" + a; const d = done[k];
-            return `<li class="${d ? "done" : ""}"><input type="checkbox" ${d ? "checked" : ""} data-k="${esc(k)}" onchange="toggleDone(this)"><span>${esc(a)}</span></li>`;
-          }).join("")}</ul>` : ""}
-          ${t.related_topics.filter(r => topicNames.has(r)).length ? `<h4>Linked to</h4>${t.related_topics.filter(r => topicNames.has(r)).map(r => `<button class="chip" onclick="jump('${esc(r).replace(/'/g, "\\'")}')">🔗 ${esc(r)}</button>`).join("")}` : ""}
-          <h4>Source notes (${notes.length})</h4>
-          <details class="src"><summary>Show the original notes</summary>
-            ${notes.sort(byDate).map(n => noteCard(n, 'style="margin-top:8px"')).join("")}
-          </details>
-        </div>`;
-      }).join("")}
-    </div>
-    ${o.open_questions.length ? `<div class="questions"><strong>❓ Open questions</strong><ul>${o.open_questions.map(q => `<li>${esc(q)}</li>`).join("")}</ul></div>` : ""}`;
+function explainHTML(explain, sources) {
+  if (!explain) return "";
+  return `<div class="explain"><h3>🧭 Where this came from</h3>${esc(explain)}
+    ${sources && sources.length ? `<div class="srclist">${sources.map(s => `<div class="src">${KIND[s.kind]}
+      <button class="src-btn" onclick="openNote('${esc(s.id)}')">${esc(s.name)}</button>
+      <span class="p">${esc(s.path)} · ${fmtDate(s.date)} (${esc(s.date_basis)}) · ${age(s.age_days)}</span>
+      ${s.old ? '<span class="tag warn">older note</span>' : ""}</div>`).join("")}</div>` : ""}</div>`;
 }
-
-function jump(name) {
-  const el = [...document.querySelectorAll(".topic")].find(e => e.dataset.name === name);
-  if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
-  el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1500);
-}
-function toggleDone(cb) {
-  done[cb.dataset.k] = cb.checked;
-  try { localStorage.setItem(doneKey, JSON.stringify(done)); } catch (e) {}
-  cb.parentElement.classList.toggle("done", cb.checked);
-}
-
-async function refresh(flashIds) {
-  state = await api("/api/state");
-  renderNotes(flashIds); renderBoard();
-}
-
-async function delNote(id) {
-  await api("/api/notes/" + id, { method: "DELETE" });
-  refresh();
-}
-
-function pickFile(file) {
-  if (!file) return;
-  selectedFile = file;
-  const p = $("preview"); p.src = URL.createObjectURL(file); p.style.display = "block";
-  $("readPhoto").disabled = false;
-  setStatus($("photoStatus"), file.name);
-}
-$("photo").addEventListener("change", e => pickFile(e.target.files[0]));
-const drop = $("drop");
-["dragover", "dragenter"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", e => pickFile(e.dataTransfer.files[0]));
-
-$("readPhoto").addEventListener("click", async () => {
-  if (!selectedFile) return;
-  const btn = $("readPhoto"); busy(btn, true);
-  setStatus($("photoStatus"), "The AI is reading the handwriting… (on a local model this can take a minute)");
-  try {
-    const fd = new FormData(); fd.append("photo", selectedFile);
-    const r = await api("/api/photo", { method: "POST", body: fd });
-    let msg = `✓ Added ${r.notes.length} note${r.notes.length > 1 ? "s" : ""} from the photo.`;
-    if (r.unclear_words.length) msg += ` Hard to read: ${r.unclear_words.join(", ")} (marked [?]).`;
-    setStatus($("photoStatus"), msg, "ok");
-    selectedFile = null; $("photo").value = ""; $("preview").style.display = "none";
-    await refresh(r.notes.map(n => n.id));
-  } catch (e) { setStatus($("photoStatus"), e.message, "err"); btn.disabled = false; }
-  btn.classList.remove("busy");
-  if (!selectedFile) btn.disabled = true;
-});
-
-$("addNote").addEventListener("click", async () => {
-  const text = $("noteText").value.trim();
-  if (!text) return setStatus($("noteStatus"), "Write something first.", "err");
-  try {
-    const r = await api("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, date: $("noteDate").value }) });
-    $("noteText").value = ""; setStatus($("noteStatus"), "✓ Note added.", "ok");
-    await refresh([r.note.id]);
-  } catch (e) { setStatus($("noteStatus"), e.message, "err"); }
-});
-
-$("organise").addEventListener("click", async () => {
-  const btn = $("organise"); busy(btn, true);
-  setStatus($("orgStatus"), "The AI is piecing your notes together…");
-  try {
-    await api("/api/organise", { method: "POST" });
-    setStatus($("orgStatus"), "");
-    await refresh();
-  } catch (e) { setStatus($("orgStatus"), e.message, "err"); }
-  busy(btn, false);
-});
-
-$("reset").addEventListener("click", async () => {
-  if (!state.notes.length) return;
-  if (!window.confirm("Delete all notes?")) return;
-  await api("/api/reset", { method: "POST" });
-  $("board").innerHTML = '<div class="empty panel">Add some notes on the left, then press <strong>Organise my notes</strong>.</div>';
-  $("stale").textContent = "";
-  refresh();
-});
-
-// ---- Tabs ----
-function showTab(which) {
-  const chat = which === "chat";
-  $("chatView").hidden = !chat; $("boardView").hidden = chat; $("boardTools").hidden = chat;
-  $("tabChat").classList.toggle("on", chat); $("tabBoard").classList.toggle("on", !chat);
-  try { localStorage.setItem("notes-manager-tab", which); } catch (e) {}
-}
-
-// ---- Chat ----
-const chatHistory = [];
-function addMsg(html, cls) {
-  $("chatEmpty") && $("chatEmpty").remove();
-  const div = document.createElement("div");
-  div.className = "msg " + cls; div.innerHTML = html;
-  $("chatLog").appendChild(div); $("chatLog").scrollTop = $("chatLog").scrollHeight;
-  return div;
-}
-function ask(q) { $("chatText").value = q; sendChat(); }
-async function sendChat() {
-  const q = $("chatText").value.trim();
-  if (!q) return;
-  const btn = $("chatSend"); busy(btn, true);
-  $("chatText").value = "";
-  addMsg(esc(q), "user");
-  const pending = addMsg('<div class="bubble" style="color:var(--muted)">Searching your notes…</div>', "ai");
-  try {
-    const r = await api("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-                                       body: JSON.stringify({ message: q, history: chatHistory }) });
-    pending.classList.toggle("none", !r.notes.length);
-    pending.innerHTML = `<div class="bubble">${esc(r.answer)}</div>` + (r.notes.length ? `
-      <div class="found timeline"><h4>${r.notes.length} note${r.notes.length > 1 ? "s" : ""} about this, oldest first</h4>
-      ${r.notes.map(n => noteCard(n)).join("")}</div>` : "");
-    chatHistory.push({ role: "user", text: q }, { role: "assistant", text: r.answer });
-  } catch (e) {
-    pending.innerHTML = `<div class="bubble" style="color:var(--err)">${esc(e.message)}</div>`;
+async function openNote(id, quoteJSON) {
+  const s = lastSources[id]; if (!s) return;
+  const quote = quoteJSON ? JSON.parse(quoteJSON) : "";
+  $("vTitle").textContent = `${KIND[s.kind]} ${s.path}`;
+  let html = "";
+  if (s.kind === "photo" || s.kind === "screenshot") {
+    html = `<img src="/api/note?key=${encodeURIComponent(s.key)}" alt=""><h4 style="margin:12px 0 6px">Text read from it by the local AI</h4>`;
   }
-  $("chatLog").scrollTop = $("chatLog").scrollHeight;
-  busy(btn, false);
+  let body = esc(s.text);
+  if (quote) {
+    const i = s.text.toLowerCase().indexOf(quote.toLowerCase());
+    if (i >= 0) body = esc(s.text.slice(0, i)) + "<mark>" + esc(s.text.slice(i, i + quote.length)) + "</mark>" + esc(s.text.slice(i + quote.length));
+  }
+  $("vBody").innerHTML = html + `<pre>${body}</pre><p class="hint" style="margin-top:12px">Dated ${fmtDate(s.date)} (${esc(s.date_basis)}), ${age(s.age_days)}.</p>`;
+  viewer.showModal();
 }
-$("chatSend").addEventListener("click", sendChat);
-$("chatText").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
 
-function localToday() {
-  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 10);
+/* ---------- Prepare ---------- */
+async function prep(text) {
+  if (text) $("meeting").value = text;
+  const meeting = $("meeting").value.trim(); if (!meeting) return;
+  busy($("prepBtn"), true); setStatus($("prepStatus"), "Reading your notes on this computer… (a local AI can take a minute)");
+  try {
+    const b = await api("/api/brief", { json: { meeting } });
+    remember(b.sources); setStatus($("prepStatus"), ""); renderBrief(b);
+  } catch (e) { setStatus($("prepStatus"), e.message, "err"); }
+  busy($("prepBtn"), false);
 }
-$("noteDate").value = localToday();
-try { if (localStorage.getItem("notes-manager-tab") === "board") showTab("board"); } catch (e) {}
+function renderBrief(b) {
+  if (b.empty) { $("brief").innerHTML = `<div class="headline none">${esc(b.explain || "I can't see any notes.")}</div>`; return; }
+  const sec = (title, items, fn) => items && items.length ? `<div class="section"><h3>${title}</h3>${items.map(fn).join("")}</div>` : "";
+  const actTags = a => {
+    const t = [];
+    if (a.status === "done") t.push('<span class="tag ok">done</span>');
+    else if (a.overdue) t.push('<span class="tag err">overdue</span>');
+    else if (a.status === "unclear") t.push('<span class="tag warn">status unclear</span>');
+    else t.push('<span class="tag">open</span>');
+    if (a.owner) t.push(`<span class="tag">${esc(a.owner)}</span>`);
+    if (a.due) t.push(`<span class="tag">due ${esc(fmtDate(a.due))}</span>`);
+    return t.join("");
+  };
+  $("brief").innerHTML = `
+    <div class="headline ${b.nothing_found ? "none" : ""}">${esc(b.headline)}</div>
+    ${b.nothing_found ? `<p class="hint">Rather than guess, I'm telling you it isn't there. Check the folders on the left are switched on, or try different words.</p>` : `
+    <div class="two">
+      <div>${sec("📌 What you need to know", b.key_points, i => itemHTML(i))}
+           ${sec("✅ Decisions already made", b.decisions, i => itemHTML(i))}</div>
+      <div>${sec("☑️ Actions", b.actions, a => itemHTML(a, actTags(a)))}
+           ${sec("🔄 Changed since (older notes are out of date)", b.changed, c => itemHTML(Object.assign({ source: c.new_source }, c), `<span class="tag warn">was: ${esc(srcLabel(c.old_source))}</span>`))}</div>
+    </div>`}
+    ${b.gaps && b.gaps.length ? `<div class="gaps"><b>❓ Your notes don't tell you</b> (ask in the meeting)<ul>${b.gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>` : ""}
+    ${explainHTML(b.explain, b.sources)}`;
+}
 
-refresh();
+/* ---------- Ask ---------- */
+async function askQ(text) {
+  if (text) $("question").value = text;
+  const q = $("question").value.trim(); if (!q) return;
+  $("question").value = "";
+  const log = $("chatLog");
+  log.insertAdjacentHTML("beforeend", `<div class="msg user">${esc(q)}</div>`);
+  const pending = document.createElement("div"); pending.className = "msg"; pending.innerHTML = '<div class="bubble">Looking through your notes…</div>';
+  log.appendChild(pending);
+  busy($("askBtn"), true);
+  try {
+    const r = await api("/api/ask", { json: { question: q, history: chatHistory } });
+    remember(r.sources);
+    const label = !r.found ? '<span class="tag warn">not in your notes</span>' : r.unsure ? '<span class="tag err">not sure: couldn\'t check against your notes</span>' : '<span class="tag ok">from your notes</span>';
+    pending.innerHTML = `<div class="bubble ${r.found ? "" : "none"}">${label}\n${esc(r.answer)}</div>
+      ${r.points.length ? `<div class="section" style="margin-top:8px"><h3>Evidence</h3>${r.points.map(p => itemHTML(p)).join("")}</div>` : ""}
+      ${r.gaps && r.gaps.length ? `<div class="gaps" style="margin-top:8px"><b>Not covered by your notes:</b><ul>${r.gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>` : ""}
+      ${explainHTML(r.explain, r.sources)}`;
+    chatHistory.push({ role: "user", text: q }, { role: "assistant", text: r.answer });
+  } catch (e) { pending.innerHTML = `<div class="bubble none" style="color:var(--err)">${esc(e.message)}</div>`; }
+  busy($("askBtn"), false);
+}
+
+/* ---------- Connect ---------- */
+async function connectDots() {
+  busy($("connectBtn"), true); setStatus($("connectStatus"), "Reading your notes on this computer…");
+  try {
+    const r = await api("/api/connect", { method: "POST" });
+    remember(r.sources); setStatus($("connectStatus"), "");
+    $("connectOut").innerHTML = `
+      ${r.links.length ? `<div class="panel"><h2>🔗 Links you might have missed</h2>${r.links.map(l => `<div class="link-item">${esc(l.text)}
+        <div class="from">Between <button class="src-btn" onclick="openNote('${esc(l.source_a)}')">${esc(srcLabel(l.source_a))}</button> and <button class="src-btn" onclick="openNote('${esc(l.source_b)}')">${esc(srcLabel(l.source_b))}</button></div></div>`).join("")}</div>` : ""}
+      <div class="threads">${r.threads.map(t => `<div class="thread"><h4>${esc(t.name)}</h4><p>${esc(t.summary)}</p>
+        ${t.next_step ? `<p><b>Next:</b> ${esc(t.next_step)}</p>` : ""}
+        <div class="from">${t.sources.map(s => `<button class="src-btn" onclick="openNote('${esc(s)}')">${esc(srcLabel(s))}</button>`).join(" · ")}</div></div>`).join("") || '<div class="empty">Nothing to connect yet.</div>'}</div>
+      ${explainHTML(r.explain, r.sources)}`;
+  } catch (e) { setStatus($("connectStatus"), e.message, "err"); }
+  busy($("connectBtn"), false);
+}
+
+/* ---------- Capture ---------- */
+$("capDate").value = new Date().toISOString().slice(0, 10);
+$("capPhoto").addEventListener("change", async () => {
+  const f = $("capPhoto").files[0]; if (!f) return;
+  $("capPreview").src = URL.createObjectURL(f); $("capPreview").hidden = false;
+  setStatus($("capStatus"), "Reading the handwriting on this computer…");
+  const fd = new FormData(); fd.append("photo", f);
+  try {
+    const r = await api("/api/capture/photo", { method: "POST", body: fd });
+    $("capText").value = r.text;
+    setStatus($("capStatus"), (r.unclear_words.length ? "Check the words marked [?]. " : "") + "Edit if needed, then Save. The photo itself isn't kept.", "ok");
+  } catch (e) { setStatus($("capStatus"), e.message, "err"); }
+  $("capPhoto").value = "";
+});
+async function saveNote() {
+  try {
+    const r = await api("/api/capture/save", { json: { text: $("capText").value, date: $("capDate").value, root: $("capRoot").value } });
+    $("capText").value = ""; $("capPreview").hidden = true;
+    renderAccess(r.access); setStatus($("capStatus"), "Saved to " + r.saved, "ok");
+  } catch (e) { setStatus($("capStatus"), e.message, "err"); }
+}
+
+/* ---------- Privacy ---------- */
+function renderPrivacy(p) {
+  const outside = p.blocked.length;
+  const changed = p.app_files_changed.length;
+  const check = (ok, icon, title, d) => `<div class="check"><span class="icon">${ok ? icon : "⚠️"}</span><div><b>${title}</b><div class="d">${d}</div></div></div>`;
+  $("checks").innerHTML = [
+    check(true, "🛡️", "Nothing can leave this computer",
+      `The network lock is on. This session the app made <b>${p.connections}</b> connection${p.connections === 1 ? "" : "s"}, all to this computer (${esc(p.ai)}). ` +
+      (outside ? `<b>${outside}</b> attempt${outside === 1 ? " was" : "s were"} made to reach somewhere else and blocked (see the log).` : "No attempt to reach anywhere else has been made.")),
+    check(!changed && !p.old_store.length, "🗄️", "No copies kept by the assistant",
+      (changed ? `Files changed in the app folder since it started: ${p.app_files_changed.map(esc).join(", ")}.` : "No files have been created or changed in the app's folder since it started. There is no database or notes file.") +
+      (p.old_store.length ? ` <br>An old <code>${esc(p.old_store.join(", "))}</code> from the previous version is in the app folder. This version never reads or writes it; you can delete it.` : "")),
+    check(true, "🧠", "Held in memory right now",
+      `${p.held_in_memory} photo reading${p.held_in_memory === 1 ? "" : "s"} (so photos aren't re-read for every question). Gone when you press <b>Forget</b> or stop the app.`),
+    check(true, "✍️", "Files written",
+      p.written_by_you.length ? `Only the notes you chose to save, into your own folder: ${p.written_by_you.map(esc).join(", ")}.` : "None. The assistant hasn't written anything."),
+    check(true, "🖥️", "Who can open the app", `Listening on ${esc(p.listening)}. Your browser is told it may only talk to this app, and not to keep its own copies.`),
+  ].join("");
+  $("log").innerHTML = p.log.map(e => `<div class="${e.kind}">${esc(e.time)} · ${esc(e.detail)}</div>`).join("") || "<div>Nothing yet.</div>";
+  const b = $("trustBadge");
+  b.className = "badge " + (changed ? "warn" : "ok");
+}
+async function loadPrivacy() { try { renderPrivacy(await api("/api/privacy")); } catch (e) { setStatus($("privStatus"), e.message, "err"); } }
+async function testBlock() {
+  busy($("testBtn"), true);
+  try { const r = await api("/api/privacy/test", { method: "POST" }); renderPrivacy(r.report); setStatus($("privStatus"), r.result, r.ok ? "ok" : "err"); }
+  catch (e) { setStatus($("privStatus"), e.message, "err"); }
+  busy($("testBtn"), false);
+}
+async function forget() {
+  const r = await api("/api/forget", { method: "POST" });
+  lastSources = {}; chatHistory = []; $("brief").innerHTML = ""; $("chatLog").innerHTML = ""; $("connectOut").innerHTML = "";
+  renderPrivacy(r.report); setStatus($("privStatus"), `Forgotten. Cleared ${r.cleared} photo reading${r.cleared === 1 ? "" : "s"} and this page's results.`, "ok");
+}
+
+loadAccess();
 </script>
 </body>
 </html>
