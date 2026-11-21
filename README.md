@@ -1,10 +1,30 @@
-# 🗂️ Notes Manager
+# 🧠 Second Brain: meeting prep from your own scattered notes
 
-An AI assistant that pieces together scattered notes. Type a quick note, or snap a photo of your handwritten notes. The AI reads the handwriting, then groups related notes into topics, summarises each one, pulls out action items and links topics that connect. You can also **chat with your notes**: ask about a subject and it pulls up every note about it, in date order. If your notes don't cover something, it says so instead of making something up.
+A personal AI assistant for a manager whose notes are everywhere: meeting notes, half-written emails, photos of handwriting, screenshots, saved links and calendar reminders. You type the meeting you're about to walk into, and in about a minute it gives you a one-page brief from **your own notes**:
 
-**It runs entirely on your own computer.** By default it uses a free local AI model through [Ollama](https://ollama.com), so your notes never leave your machine and you don't need an API key. You can switch to Claude (Anthropic's API) with one setting if you want stronger results.
+- 📌 the latest facts that matter for that meeting
+- ✅ decisions already made (the latest version only)
+- ☑️ open actions, who owns them, and which are overdue or already done
+- 🔄 what has **changed** since your older notes, so you don't quote an out-of-date number
+- ❓ what your notes **don't** tell you, as questions to ask in the meeting
 
-![The organised board](docs/screenshots/4-organised.png)
+Every line shows the exact words it came from. You can click to open the note with those words highlighted. The app checks those words really are in your note, and marks anything it can't match as ⚠ unchecked.
+
+**The one rule: your knowledge stays yours.** The AI runs on your own computer through [Ollama](https://ollama.com). The app blocks every network connection that isn't to your computer. It keeps no copy of your notes: no database, no cache file, no history. You choose which folders it can see, and you can change your mind at any time.
+
+![A meeting brief](docs/screenshots/2-meeting-brief.png)
+
+---
+
+## How it meets the judging criteria
+
+| Criterion | What the app does |
+|---|---|
+| **Insight & problem understanding** | It focuses on one real moment: *"I've got the Leeds site review in 10 minutes. What did we agree, what's changed, what's still open?"* It covers all four places notes break down: **capture** (jot a note or photo into your own folder), **find** (ask in your own words), **connect** (join the dots between notes from different places and dates) and **trust** (the privacy check). |
+| **Creative use of AI & design** | It's not a chatbot over your notes. It builds a structured brief, works out which older notes are out of date ("target was 40, now 30"), spots conflicts (your photo says *Fri 28th*, your calendar says *Friday 27th*), notices unfinished drafts that still have old numbers, and lists what's missing. It handles messy notes: fragments, typos, `??`, undated files and handwriting. |
+| **Working end to end** | It runs on a Mac with a local model and comes with made-up sample notes for a fictional manager. It reads **five kinds of notes**: typed notes (`.md` / `.txt`), photos of handwriting and screenshots (`.jpg` / `.png`), saved links (`.url` / `.webloc`) and calendar reminders (`.ics`). |
+| **Trust & explainability** | Every point shows the note it came from and the exact quote, and the app checks the quote is really there. It flags numbers that aren't in the note, marks things it isn't sure about, and says *"I couldn't find that in your notes"* instead of guessing. A **🧭 Where this came from** box explains, in plain words, which notes it used, how old they are, which were photos and which you'd hidden. |
+| **Knowledge stays yours** | **On device:** a network lock blocks anything that isn't your computer, and the AI must be local. **No copies:** notes are read fresh from your folders and nothing is stored. **You're in control:** tick or untick any folder or file, pause everything, or add and remove folders. **You can check it:** the 🔒 Privacy check page shows live what the app connected to, what it blocked, what it wrote (nothing) and what it holds in memory. It has a button to try reaching the internet (it gets blocked), a **Forget everything now** button, and steps to verify it yourself without trusting the app. |
 
 ---
 
@@ -14,27 +34,23 @@ You'll type a few commands into **Terminal** (press `⌘ + Space`, type `Termina
 
 ### 1. Install Ollama and download a model
 
-1. Download Ollama from <https://ollama.com/download>, open the file and drag it into Applications. Open the Ollama app once (you'll see a small llama icon in the menu bar at the top of the screen).
+1. Download Ollama from <https://ollama.com/download>, open it and drag it into Applications. Open the Ollama app once (a small llama icon appears in the menu bar).
 2. In Terminal, download a model that can read images:
 
    ```bash
    ollama pull qwen2.5vl:7b
    ```
 
-   This is about 6 GB, so it takes a while. A Mac with 16 GB of memory or more is comfortable. On an 8 GB Mac, use the smaller `qwen2.5vl:3b` instead, and put `OLLAMA_MODEL=qwen2.5vl:3b` in your `.env` file (step 3).
+   It's about 6 GB. On an 8 GB Mac use `qwen2.5vl:3b` instead, and put `OLLAMA_MODEL=qwen2.5vl:3b` in your `.env` file (step 3).
 
 ### 2. Get the code
 
-```bash
-git clone https://github.com/CormGt/Pfizer-hack.git
-cd Pfizer-hack
-```
-
-(If `git` asks you to install the developer tools, click Install and run the command again.)
+Download the ZIP (signed in to GitHub): <https://github.com/CormGt/Pfizer-hack/archive/refs/heads/main.zip>, then double-click it in Downloads to unzip it.
 
 ### 3. Install and run the app
 
 ```bash
+cd ~/Downloads/Pfizer-hack-main
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -42,123 +58,81 @@ cp .env.example .env
 python app.py
 ```
 
-Open **<http://localhost:5050>** in your browser. That's it.
+Open **<http://localhost:5050>** in your browser.
 
 Next time, you only need:
 
 ```bash
-cd Pfizer-hack
+cd ~/Downloads/Pfizer-hack-main
 source .venv/bin/activate
 python app.py
 ```
 
-Press `Ctrl + C` in Terminal to stop the app.
+Press `Ctrl + C` in Terminal to stop the app. Anything it held in memory goes with it.
 
-### Using your phone's camera
+> **No AI installed yet?** Run `DEMO_MODE=1 python app.py` to click around with example results. The screenshots in this guide come from demo mode.
 
-Your phone can snap notes straight into the app if it's on the same Wi-Fi as your Mac. When the app starts, Terminal prints a line like `Running on http://192.168.1.23:5050`. Open that address in your phone's browser and tap **Tap to take or choose a photo**.
+### Using your own notes
 
-> iPhone tip: if a photo is rejected, go to Settings > Camera > Formats and choose **Most Compatible** (the app needs JPG or PNG, not HEIC).
+The app starts with the made-up notes in `sample-notes/`. To use a real folder, either:
 
----
+- type its location into **➕ Add another folder of notes** in the app (e.g. `~/Documents/Meeting notes`), or
+- set `NOTES_FOLDERS=~/Documents/Meeting notes` in `.env`.
 
-## Walkthrough with an example
+Files whose names start with `_` or `.` are ignored. If a file name has a date in it like `2026-11-03 Leeds call.md`, that's used as the note's date. Otherwise it uses the date the file was last changed, and says so.
 
-A sample handwritten page is included at [`examples/sample-handwritten-note.jpg`](examples/sample-handwritten-note.jpg). It has three separate things on it: notes from a trial site meeting, ideas for a hackathon pitch, and a reminder to call a supplier.
-
-> The screenshots below were taken in demo mode (`DEMO_MODE=1`), which shows example results without calling any AI. With Ollama or Claude switched on, the real AI produces the same kind of results from your own photos.
-
-**1. Add a photo.** Click **Tap to take or choose a photo** (or drag the image onto that box), choose the sample image, then press **Read handwriting**.
-
-![Photo chosen](docs/screenshots/2-photo-chosen.png)
-
-**2. The AI reads it.** It splits the page into separate notes, one per idea, and adds them to **All notes**, tagged *📷 from photo*. If any word was hard to read, it's marked `[?]` and listed under the button so you can fix it. Here I also typed one quick note: *"Priya says nurse cover possible from Dec 1 if budget approved - check with finance"*.
-
-![Notes added](docs/screenshots/3-notes-added.png)
-
-**3. Organise.** Press **Organise my notes**. The AI pieces everything together:
-
-- **Big picture**: a short summary across all your notes.
-- **Topic cards**: related notes grouped together. The typed note about Priya was put with the handwritten trial meeting note, because they're about the same thing.
-- **Action items** with tick boxes for each topic.
-- **Linked to**: click a link to jump to a related topic (here, the delayed supplier batch is linked to trial recruitment).
-- **Source notes**: open this to see the original notes behind a topic.
-- **Open questions**: things that are unclear or missing.
-
-![Organised board](docs/screenshots/4-organised.png)
-
-**4. Ask your notes.** Open the **💬 Ask your notes** tab and ask about any subject, for example *"What notes do I have about the Leeds trial?"*. The AI answers using only your notes and shows every note on that subject as a timeline, oldest first, with dates. If nothing in your notes covers the question, it says so. It never makes up an answer: if the AI's reply isn't backed by at least one of your notes, the app replaces it with *"I couldn't find any notes about that."*
-
-![Chat with your notes](docs/screenshots/6-chat.png)
-
-**Dates.** Every note has a date. Typed notes use the date picker next to **Add note** (today by default). For photos, the AI uses any date written on the page, otherwise today. Click the date on any note in **All notes** to change it.
-
-Add more notes at any time. The app tells you how many notes are new since you last organised, and you press **Organise my notes** again to update the board. Everything is saved in `notes.json`, so it's still there when you restart.
+**Coming from the old version?** Your notes are in `notes.json`. Run `python export_old_notes.py ~/Documents/My notes` to turn them into normal files, then add that folder. The new version never reads or writes `notes.json`.
 
 ---
 
-## Settings (`.env` file)
+## Demo walkthrough (about 3 minutes)
 
-The `.env` file holds your settings. Open it in any text editor (in Terminal: `open -e .env`).
+The sample notes belong to **Jordan**, a fictional clinical operations manager running patient recruitment at a Leeds trial site, with a second site in Bristol being set up. They're deliberately messy. There's a target that changed, a cost that changed, an unfinished email with an old number, an undated ideas file, a handwritten page, a screenshot of a chat message, two saved links, a calendar with the review meeting, and a private folder (`personal/`).
 
-| Setting | What it does |
-| --- | --- |
-| `AI_PROVIDER=ollama` | Use a local model through Ollama (default). |
-| `AI_PROVIDER=claude` | Use Claude through the Anthropic API instead. Needs `ANTHROPIC_API_KEY`, Python 3.10 or newer, and one extra install: `pip install -r requirements-claude.txt`. |
-| `OLLAMA_MODEL` | Which Ollama model to use. It must support images. Default `qwen2.5vl:7b`. Others to try: `qwen2.5vl:3b` (smaller, faster), `gemma3:12b`, `llama3.2-vision`. Download a model first with `ollama pull <name>`. |
-| `ANTHROPIC_API_KEY` | Your Claude API key, from <https://console.anthropic.com/settings/keys>. Paste it after the `=` with no quotes. Only needed for `AI_PROVIDER=claude`. |
-| `CLAUDE_MODEL` | Default `claude-opus-5-5`. |
-| `DEMO_MODE=1` | Try the app with example results and no AI at all. |
-| `PORT` | Default `5050`. |
+**1. Prepare for a meeting.** Click **Leeds site review with Dr Okafor and Priya**. The brief says Leeds is at 12 of a *new* target of 30. It shows that the nurse budget was approved at £16k (from the **screenshot**), that kits could run out before the delayed batch arrives, and that the "email Marcus" action is already done. Under 🔄 *Changed since*, it catches that the target dropped from 40 to 30, that the Bristol decision changed, and that the unfinished email to Sam still says 40. Under ❓ *Your notes don't tell you*, it lists what to ask, including that the photo says "Fri 28th" but the calendar says Friday 27th.
 
-**Keep your API key secret.** The `.env` file is listed in `.gitignore`, so it won't be uploaded to GitHub.
+**2. Click any source.** The note opens with the exact words highlighted. For a photo, you see the image and the text the local AI read from it.
 
-### Local vs Claude
+![Source with quote highlighted](docs/screenshots/3-source-quote.png)
 
-| | Ollama (local) | Claude |
-| --- | --- | --- |
-| Cost | Free | Pay per use |
-| Privacy | Notes never leave your Mac | Sent to Anthropic's API |
-| Works offline | Yes | No |
-| Speed | 20 seconds to a few minutes per photo, depending on your Mac | Usually 10-30 seconds |
-| Messy handwriting | Good on neat writing, weaker on messy writing | Strong |
+**3. Change what it can see.** Untick `personal` on the left. It's struck through, and from now on the assistant can't read it or open it. The *Where this came from* box says "1 file you've hidden was not looked at."
 
-A good hackathon plan: build and demo with Ollama, and keep Claude as a backup for very messy handwriting.
+**4. Find something, and see it be honest.** In **💬 Find something**, ask *"What did we decide about opening Bristol?"* and you'll see both the old and the new decision, with dates. Then ask *"What is the parking policy at the Leeds office?"* and it says it couldn't find that in your notes, so it won't guess.
+
+![Find, and an honest "not in your notes"](docs/screenshots/4-find-and-honest.png)
+
+**5. Join the dots.** **🧩 Join the dots** shows the running threads of work and links you might have missed, like the kit delay that affects the Bristol plan.
+
+**6. Prove the rule.** Open **🔒 Privacy check**. It shows every connection went to this computer, no files were created in the app's folder, and what's held in memory. Press **🧪 Try to reach the internet** and the log turns red: *Blocked*. Press **🧹 Forget everything now** and the memory count goes to 0. For extra proof, turn off Wi-Fi and run the brief again. It still works.
+
+![Privacy check](docs/screenshots/6-privacy-check.png)
 
 ---
+
+## How the one rule is kept (for the technical judges)
+
+All of this is in `app.py`, which is one file.
+
+- **Network lock.** At start-up, before anything else loads, `socket.socket.connect`, `connect_ex` and `socket.getaddrinfo` are wrapped. Only loopback addresses (127.0.0.1, ::1, localhost) are allowed. Anything else raises an error and goes into the session log. `OLLAMA_URL` must be local or the app won't start. Proxies are ignored for the Ollama call.
+- **Browser lock.** Every page is sent with a Content-Security-Policy that lets the page talk only to the app (no outside scripts, fonts or requests), plus `Cache-Control: no-store` so the browser doesn't keep copies, and `Referrer-Policy: no-referrer`.
+- **Only this computer can open it.** The server listens on 127.0.0.1 unless you turn on `PHONE_ACCESS=1`.
+- **No copies.** There's no database. Notes are read from your folders for each request and dropped afterwards. The only thing kept is the text read from photos, held in memory so a photo isn't re-read for every question. It's cleared by **Forget** or by stopping the app. Notes you *capture* are saved as plain `.md` files in **your** folder's `inbox/`, never inside the app. The Privacy check scans the app's folder for any file created or changed since start-up.
+- **Access control.** Folder and file visibility is checked on every read, including when you open a source. Hidden files are never sent to the AI (there's a test for this).
+- **Checking the AI.** The model must answer in a fixed JSON shape. Each item names one note id and a quote. The server drops items that cite a note that doesn't exist and marks an item ⚠ unchecked if its quote isn't in that note or it contains a number the note doesn't. If nothing checks out, it says it isn't sure, or that nothing was found.
+- **Ollama** runs the model on your Mac. It doesn't keep your prompts or conversations. The Ollama app may check online for its own updates, but that never includes your notes, and this app never sends anything there.
+
+## Running the automated checks
+
+```bash
+source .venv/bin/activate
+python -m unittest discover tests
+```
+
+There are 19 checks. They cover the network lock, that nothing is written, hidden folders never reaching the AI, pause, made-up quotes and numbers being flagged, invented notes being dropped, overdue actions and capture saving into your folder. They use a pretend Ollama, so no model is needed.
 
 ## Troubleshooting
 
-| Message | Fix |
-| --- | --- |
-| *Can't reach Ollama* | Open the Ollama app (llama icon in the menu bar), or run `ollama serve` in a separate Terminal window. |
-| *Ollama doesn't have the model…* | Run `ollama pull qwen2.5vl:7b` (or whatever `OLLAMA_MODEL` is set to). |
-| *Address already in use* | Something else is using port 5050. Put `PORT=5051` in `.env` and open <http://localhost:5051>. |
-| Reading a photo is very slow | The first request loads the model into memory and is slowest. Try `qwen2.5vl:3b`, or a smaller or cropped photo. |
-| *No Anthropic API key found* | You set `AI_PROVIDER=claude`. Add your key to `.env`, or switch back to `ollama`. |
-| `No matching distribution found for anthropic` | You're on an older version of the code. Download it again. The local (Ollama) setup works with the Python that comes with your Mac. |
-| `python3: command not found` | Install Python from <https://www.python.org/downloads/>. |
-
----
-
-## How it works
-
-- `app.py` is a small [Flask](https://flask.palletsprojects.com) web server.
-  - `POST /api/photo` sends the photo to the AI with instructions to transcribe the handwriting and split it into separate notes.
-  - `POST /api/organise` sends all notes to the AI and asks it to group them into topics, with summaries, action items, links and open questions.
-  - `POST /api/chat` sends your question and your notes (with dates) to the AI. It must answer only from the notes and list the id of every note it used. Answers that cite no real note are replaced with "no notes found".
-  - Both ask for a fixed JSON shape (a "schema"), so the answers always fit the page.
-- `templates/index.html` is the whole web page (HTML, CSS and JavaScript in one file).
-- Notes are saved in `notes.json`.
-
-## Project files
-
-```
-app.py                         the server and the AI calls
-templates/index.html           the web page
-requirements.txt               Python packages to install
-requirements-claude.txt        extra package, only for AI_PROVIDER=claude
-.env.example                   settings template (copy to .env)
-examples/                      a sample handwritten note to try
-docs/screenshots/              screenshots used in this README
-```
+- **"Can't reach Ollama"**: open the Ollama app, and make sure `ollama pull qwen2.5vl:7b` has finished.
+- **It's slow**: local models take a while, especially the first time (loading) and when reading photos. Hide folders you don't need, or use `qwen2.5vl:3b`.
+- **iPhone photo rejected**: Settings > Camera > Formats > **Most Compatible** (JPG, not HEIC).
+- **Port in use**: `PORT=5051 python app.py`.
