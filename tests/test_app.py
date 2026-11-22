@@ -122,7 +122,7 @@ class Access(unittest.TestCase):
         SEEN.clear()
         NEXT_REPLY.clear()
         NEXT_REPLY.update({"found": False, "answer": "", "points": [], "gaps": []})
-        client.post("/api/ask", json={"question": "What did Sam say about development?"})
+        client.post("/api/ask", json={"question": "What did Sam say about the dashboard?"})
         prompt = SEEN[-1]["messages"][0]["content"]
         self.assertNotIn("development conversation", prompt)
         self.assertIn("supplier", prompt)
@@ -207,6 +207,37 @@ class Honesty(unittest.TestCase):
         r = client.post("/api/brief", json={"meeting": "Quarterly budget planning"}).get_json()
         self.assertTrue(r["nothing_found"])
         self.assertIn("couldn't find", r["headline"])
+
+
+class OffTopic(unittest.TestCase):
+    def test_unrelated_meeting_is_not_answered_with_old_brief(self):
+        # A small model might repeat the Leeds brief for any meeting. The app must not show it.
+        notes, _ = second_brain.load_visible_notes()
+        call = find_id(notes, "Leeds site call")
+        NEXT_REPLY.clear()
+        NEXT_REPLY.update({"relevant": True, "headline": "Leeds is at 12 of 40", "key_points": [
+            {"text": "Leeds is at 12 of 40", "source": call, "quote": "recruitment now 12/40", "confidence": "high"}],
+            "decisions": [], "actions": [], "changed": [], "gaps": []})
+        SEEN.clear()
+        r = client.post("/api/brief", json={"meeting": "Office move planning"}).get_json()
+        self.assertTrue(r["nothing_found"])
+        self.assertEqual(r["key_points"], [])
+        self.assertNotIn("Leeds", r["headline"])
+        self.assertEqual(SEEN, [])  # the AI wasn't even asked
+
+    def test_unrelated_question_not_answered(self):
+        SEEN.clear()
+        r = client.post("/api/ask", json={"question": "What is the parking policy at the Leeds office?"}).get_json()
+        self.assertFalse(r["found"])
+        self.assertEqual(SEEN, [])
+
+    def test_related_meeting_still_goes_to_ai(self):
+        NEXT_REPLY.clear()
+        NEXT_REPLY.update({"relevant": False, "headline": "", "key_points": [], "decisions": [], "actions": [], "changed": [], "gaps": []})
+        SEEN.clear()
+        client.post("/api/brief", json={"meeting": "Leeds site review with Dr Okafor and Priya"})
+        briefs = [b for b in SEEN if not b["messages"][0].get("images")]
+        self.assertEqual(len(briefs), 1)
 
 
 class Capture(unittest.TestCase):
