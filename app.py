@@ -709,10 +709,58 @@ def _parse_due(s):
         return None
 
 
+TOPIC_STOP = {
+    "what", "about", "have", "the", "any", "notes", "note", "did", "are", "there", "with", "for", "and", "how", "who", "when",
+    "this", "that", "from", "show", "all", "tell", "decide", "decided", "was", "were", "does", "say", "said", "need", "know",
+    "our", "much", "many", "where", "which", "why", "his", "her", "their", "they", "them", "its", "you", "your", "can",
+    "could", "would", "should", "will", "into", "onto", "over", "after", "before", "next", "last", "this", "week", "today",
+    "meeting", "meetings", "planning", "plan", "review", "prep", "prepare", "sync", "catch", "up", "chat", "discuss",
+    "discussed", "talk", "talked", "get", "got", "is", "be", "been", "i", "me", "my", "we", "us", "at", "on", "in", "of", "to",
+}
+
+
+def _stems(text):
+    return {w[:4] for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2}
+
+
+def topic_words(query):
+    return sorted({w[:4] for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) > 2 and w not in TOPIC_STOP})
+
+
+def notes_mention_topic(query, notes):
+    """A check that doesn't rely on the AI: does at least one note actually talk about this?
+
+    With one or two topic words, one note must contain all of them; with more, at least half.
+    Small local models sometimes answer with whatever they know best (e.g. repeat the Leeds
+    brief for an unrelated meeting), so if no note mentions the topic we say so without asking the AI."""
+    words = topic_words(query)
+    if not words:
+        return True
+    need = len(words) if len(words) <= 2 else (len(words) + 1) // 2
+    for n in notes:
+        if len(set(words) & _stems(n["name"] + " " + n["text"])) >= need:
+            return True
+    return False
+
+
+def nothing_brief(meeting, notes, meta, left_out):
+    words = sorted({w for w in re.findall(r"[a-z0-9]+", meeting.lower()) if len(w) > 2 and w not in TOPIC_STOP})
+    return {
+        "nothing_found": True, "meeting": meeting,
+        "headline": f"I couldn't find anything in your notes about \u201c{meeting}\u201d.",
+        "key_points": [], "decisions": [], "actions": [], "changed": [], "gaps": [], "sources": [],
+        "explain": f"I looked through {len(notes)} of your notes and none of them mention "
+                   + " or ".join(f"\u201c{w}\u201d" for w in words[:4]) + "."
+                   + (f" {meta['hidden']} hidden file{'s' if meta.get('hidden') != 1 else ''} {'were' if meta.get('hidden') != 1 else 'was'} not looked at." if meta.get("hidden") else ""),
+    }
+
+
 def build_brief(meeting):
     notes, meta = load_visible_notes()
     if not notes:
         return {"empty": True, "explain": explain_sources([], [], meta, [])}
+    if not notes_mention_topic(meeting, notes):
+        return nothing_brief(meeting, notes, meta, [])
     chosen, left_out = pick_for_context(notes, meeting)
     if DEMO_MODE:
         raw = demo_brief(meeting, chosen)
@@ -736,8 +784,7 @@ def build_brief(meeting):
                 out["changed"].append(v)
     items = out["key_points"] + out["decisions"] + out["actions"] + out["changed"]
     if not raw.get("relevant", True) or not items:
-        out["nothing_found"] = True
-        out["headline"] = f"I couldn't find anything in your notes about “{meeting}”."
+        return nothing_brief(meeting, notes, meta, left_out)
     if items and not any(i["verified"] for i in items):
         out["headline"] = "I'm not sure about this one: I couldn't match any of it to the exact words in your notes."
     out["sources"], out["explain"] = finish(items, chosen, meta, left_out)
@@ -749,6 +796,10 @@ def build_answer(question, history):
     notes, meta = load_visible_notes()
     if not notes:
         return {"found": False, "answer": explain_sources([], [], meta, []), "points": [], "gaps": [], "sources": [], "explain": ""}
+    # Check the notes really mention the subject (skipped for short follow-ups like "who owns that?").
+    if len(topic_words(question)) >= 2 and not notes_mention_topic(question, notes):
+        return {"found": False, "answer": "I couldn't find that in your notes, so I won't guess.", "points": [], "gaps": [],
+                "sources": [], "explain": nothing_brief(question, notes, meta, [])["explain"]}
     chosen, left_out = pick_for_context(notes, question)
     if DEMO_MODE:
         raw = demo_ask(question, chosen)
