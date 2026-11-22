@@ -1001,6 +1001,8 @@ def lock_down_browser(resp):
 
 
 def _err(msg, code=400):
+    if code >= 500:
+        print(f"  PROBLEM: {msg}")  # also show it in Terminal
     return jsonify(error=msg), code
 
 

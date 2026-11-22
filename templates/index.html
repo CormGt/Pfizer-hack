@@ -48,6 +48,9 @@
              animation: spin .8s linear infinite; display: none; }
   button.busy .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner.big { display: inline-block; width: 16px; height: 16px; border-color: rgba(124,140,255,.3); border-top-color: var(--accent); vertical-align: -2px; margin-right: 6px; }
+  .headline.wait .secs { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 6px; }
+  .headline.err { border-color: rgba(248,113,113,.45); background: var(--err-soft); color: var(--err); }
 
   /* What I can see */
   .tree { font-size: 14px; }
@@ -208,7 +211,7 @@
         <div class="chips">
           <button class="chip" onclick="prep('Leeds site review with Dr Okafor and Priya')">Leeds site review with Dr Okafor and Priya</button>
           <button class="chip" onclick="prep('1:1 with Priya')">1:1 with Priya</button>
-          <button class="chip" onclick="prep('Quarterly budget planning')">Quarterly budget planning</button>
+          <button class="chip" onclick="prep('Office move planning')">Office move planning</button>
         </div>
         <div class="status" id="prepStatus"></div>
       </div>
@@ -383,14 +386,30 @@ async function openNote(id, quoteJSON) {
 }
 
 /* ---------- Prepare ---------- */
+let waitTimer = null;
+function waiting(el, what) {
+  // Clear the old result straight away and show a big, live "working" card, so it never looks like nothing happened.
+  clearInterval(waitTimer);
+  const start = Date.now();
+  el.innerHTML = `<div class="headline wait"><span class="spinner big"></span> ${esc(what)} <span class="secs">0s</span>
+    <div class="hint" style="margin:6px 0 0;font-weight:400">The AI runs on this computer, so this can take a minute or two. Please wait.</div></div>`;
+  waitTimer = setInterval(() => { const s = el.querySelector(".secs"); if (s) s.textContent = Math.round((Date.now() - start) / 1000) + "s"; }, 1000);
+}
+function failed(el, msg) {
+  clearInterval(waitTimer);
+  el.innerHTML = `<div class="headline err">⚠️ ${esc(msg)}</div>`;
+}
 async function prep(text) {
   if (text) $("meeting").value = text;
-  const meeting = $("meeting").value.trim(); if (!meeting) return;
-  busy($("prepBtn"), true); setStatus($("prepStatus"), "Reading your notes on this computer… (a local AI can take a minute)");
+  const meeting = $("meeting").value.trim();
+  if (!meeting) { setStatus($("prepStatus"), "Type the meeting you're preparing for first.", "err"); return; }
+  busy($("prepBtn"), true); setStatus($("prepStatus"), "");
+  waiting($("brief"), `Preparing your brief for “${meeting}”…`);
   try {
     const b = await api("/api/brief", { json: { meeting } });
-    remember(b.sources); setStatus($("prepStatus"), ""); renderBrief(b);
-  } catch (e) { setStatus($("prepStatus"), e.message, "err"); }
+    clearInterval(waitTimer);
+    remember(b.sources); renderBrief(b);
+  } catch (e) { failed($("brief"), e.message); }
   busy($("prepBtn"), false);
 }
 function renderBrief(b) {
@@ -426,7 +445,8 @@ async function askQ(text) {
   $("question").value = "";
   const log = $("chatLog");
   log.insertAdjacentHTML("beforeend", `<div class="msg user">${esc(q)}</div>`);
-  const pending = document.createElement("div"); pending.className = "msg"; pending.innerHTML = '<div class="bubble">Looking through your notes…</div>';
+  const pending = document.createElement("div"); pending.className = "msg"; pending.innerHTML = '<div class="bubble"><span class="spinner big"></span> Looking through your notes on this computer… <span class="secs"></span></div>';
+  const askStart = Date.now(); const askTimer = setInterval(() => { const s = pending.querySelector(".secs"); if (s) s.textContent = Math.round((Date.now() - askStart) / 1000) + "s"; }, 1000);
   log.appendChild(pending);
   busy($("askBtn"), true);
   try {
@@ -438,16 +458,18 @@ async function askQ(text) {
       ${r.gaps && r.gaps.length ? `<div class="gaps" style="margin-top:8px"><b>Not covered by your notes:</b><ul>${r.gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul></div>` : ""}
       ${explainHTML(r.explain, r.sources)}`;
     chatHistory.push({ role: "user", text: q }, { role: "assistant", text: r.answer });
-  } catch (e) { pending.innerHTML = `<div class="bubble none" style="color:var(--err)">${esc(e.message)}</div>`; }
+  } catch (e) { pending.innerHTML = `<div class="bubble none" style="color:var(--err)">⚠️ ${esc(e.message)}</div>`; }
+  clearInterval(askTimer);
   busy($("askBtn"), false);
 }
 
 /* ---------- Connect ---------- */
 async function connectDots() {
-  busy($("connectBtn"), true); setStatus($("connectStatus"), "Reading your notes on this computer…");
+  busy($("connectBtn"), true); setStatus($("connectStatus"), "");
+  waiting($("connectOut"), "Joining the dots in your notes…");
   try {
     const r = await api("/api/connect", { method: "POST" });
-    remember(r.sources); setStatus($("connectStatus"), "");
+    clearInterval(waitTimer); remember(r.sources);
     $("connectOut").innerHTML = `
       ${r.links.length ? `<div class="panel"><h2>🔗 Links you might have missed</h2>${r.links.map(l => `<div class="link-item">${esc(l.text)}
         <div class="from">Between <button class="src-btn" onclick="openNote('${esc(l.source_a)}')">${esc(srcLabel(l.source_a))}</button> and <button class="src-btn" onclick="openNote('${esc(l.source_b)}')">${esc(srcLabel(l.source_b))}</button></div></div>`).join("")}</div>` : ""}
@@ -455,7 +477,7 @@ async function connectDots() {
         ${t.next_step ? `<p><b>Next:</b> ${esc(t.next_step)}</p>` : ""}
         <div class="from">${t.sources.map(s => `<button class="src-btn" onclick="openNote('${esc(s)}')">${esc(srcLabel(s))}</button>`).join(" · ")}</div></div>`).join("") || '<div class="empty">Nothing to connect yet.</div>'}</div>
       ${explainHTML(r.explain, r.sources)}`;
-  } catch (e) { setStatus($("connectStatus"), e.message, "err"); }
+  } catch (e) { failed($("connectOut"), e.message); }
   busy($("connectBtn"), false);
 }
 
